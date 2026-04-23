@@ -18,3 +18,5 @@ jobs:
       - run: npm ci
       - run: npm install wrangler@latest
       - run: npm run deploy
+      - name: Set ZZZ_ACCESS_TOKEN secret
+        run: echo "${{ secrets.ZZZ_ACCESS_TOKEN }}" | npx wrangler secret put ZZZ_ACCESS_TOKEN
