@@ -3,7 +3,7 @@ import type { Pet } from '@/types/pet'
 // 变化区接口：Pet 结构扩展时只改这里和 Pet 类型
 export type PetGeneratorFn = (imageUrl: string) => Promise<Omit<Pet, 'id' | 'imageUrl'>>
 
-const MODEL = 'anthropic/claude-sonnet-4-6'
+const MODEL = 'anthropic/claude-opus-4.6'
 
 const SYSTEM_PROMPT = `你是末日世界的造物主AI。根据图片中宠物的外形、颜色和气质，为它生成属性卡片。
 
