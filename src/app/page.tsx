@@ -20,8 +20,9 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageDataUrl: dataUrl }),
       })
-      const data = await res.json() as { pet: Pet; imageUrl: string | null }
-      const { pet: p, imageUrl } = data
+      const data = await res.json() as { pet: Pet; imageUrl: string | null; fallback?: boolean }
+      const { pet: p, imageUrl, fallback } = data
+      console.log('[generate] imageUrl:', imageUrl, 'fallback:', fallback)
       setPet({ ...p, imageUrl: imageUrl ?? undefined })
     } catch {
       setPet({

@@ -1,5 +1,5 @@
 'use client'
-import Image from 'next/image'
+import { useState } from 'react'
 import type { Pet } from '@/types/pet'
 
 interface Props {
@@ -8,24 +8,42 @@ interface Props {
 }
 
 export default function PetCard({ pet, onReset }: Props) {
+  const [imgError, setImgError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
+
+  const handleRetry = () => {
+    setImgError(false)
+    setRetryKey(k => k + 1)
+  }
+
+  const imgSrc = pet.imageUrl
+    ? `${pet.imageUrl}${retryKey > 0 ? `?r=${retryKey}` : ''}`
+    : null
+
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col px-6 py-16 overflow-y-auto">
       <div className="flex-1 flex flex-col items-center gap-6">
 
         {/* 宠物图像 */}
         <div
-          className="w-56 h-56 rounded-2xl bg-gray-800 overflow-hidden flex items-center justify-center anim-scale-in"
+          className="w-56 h-56 rounded-2xl bg-gray-800 overflow-hidden flex items-center justify-center anim-scale-in cursor-pointer"
           style={{ animationDelay: '0ms' }}
+          onClick={imgError ? handleRetry : undefined}
         >
-          {pet.imageUrl ? (
-            <Image
-              src={pet.imageUrl}
+          {imgSrc && !imgError ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={retryKey}
+              src={imgSrc}
               alt={pet.name}
-              width={224}
-              height={224}
               className="w-full h-full object-cover"
-              unoptimized
+              onError={() => setImgError(true)}
             />
+          ) : imgError ? (
+            <div className="flex flex-col items-center gap-2 text-gray-500">
+              <span className="text-3xl">↻</span>
+              <span className="text-xs">点击重试</span>
+            </div>
           ) : (
             <span className="text-gray-600 text-5xl">🐾</span>
           )}
