@@ -15,5 +15,9 @@
 	"observability": {
 		"enabled": true
 	},
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"routes": [
+		{ "pattern": "lastcreator.cc", "custom_domain": true },
+		{ "pattern": "www.lastcreator.cc", "custom_domain": true }
+	]
 }
