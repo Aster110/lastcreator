@@ -1,56 +1,99 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { uploadDoodle, submitGenerate, pollUntilDone, getResultUrl, cleanupLibrary } from '@/lib/zzz-studio'
-import { generatePetInfo } from '@/lib/pet-generator'
+import { resolveUser } from '@/lib/identity'
+import { prefixedId } from '@/lib/db/nanoid'
+import { zzzStudioProvider, zzzStudioCleanup, r2Persistor } from '@/lib/image'
+import { openRouterGenerator } from '@/lib/ai'
 import { randomPrompt } from '@/lib/style-prompts'
-import type { Pet } from '@/types/pet'
+import { createPet } from '@/lib/repo/pets'
+import { r2PutFromDataUrl } from '@/lib/storage/r2'
+import { emit } from '@/lib/events'
+import { getCtx } from '@/lib/db/client'
+import type { DisplayPet } from '@/types/pet'
 
-const FALLBACK_PET: Omit<Pet, 'id' | 'imageUrl'> = {
+const FALLBACK: DisplayPet = {
+  id: '',
   name: '神秘生命体',
   habitat: '末日废墟',
   personality: '神秘而古老',
   skills: ['虚空凝视', '时间感知', '意志具现'],
   hp: 100,
   story: '它从你的笔触中诞生，带着世界最后的记忆。',
+  imageUrl: null,
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json() as { imageDataUrl?: string }
-  const { imageDataUrl } = body
+  const body = (await req.json()) as { imageDataUrl?: string; memoryHint?: string }
+  const { imageDataUrl, memoryHint } = body
   if (!imageDataUrl) {
     return NextResponse.json({ error: 'missing imageDataUrl' }, { status: 400 })
   }
 
-  let libraryId: string | undefined
+  const petId = prefixedId('p')
+  let taskRef: string | undefined
+  let ctx: ExecutionContext | null = null
+  try {
+    ctx = getCtx()
+  } catch {
+    // 极少数情况下 cloudflare context 还没 bind，宽容处理
+  }
 
   try {
-    // Step A: 上传涂鸦
-    const { libraryId: libId, personId } = await uploadDoodle(imageDataUrl)
-    libraryId = libId
+    const { userId } = await resolveUser()
 
-    // Step B: 随机画风 + 提交生图
-    const taskId = await submitGenerate(randomPrompt(), libraryId, personId)
+    // 并行：涂鸦存 R2（备份，可失败）+ zzz 图生图（必需）
+    const doodleKey = `pets/${petId}/doodle.png`
+    const [doodleResult, imageResult] = await Promise.all([
+      r2PutFromDataUrl(imageDataUrl, doodleKey).catch(err => {
+        console.warn('[generate] doodle save failed (non-fatal):', err)
+        return null
+      }),
+      zzzStudioProvider.generateFromDoodle(imageDataUrl, randomPrompt()),
+    ])
+    taskRef = imageResult.taskRef
 
-    // Step C: 轮询等待完成
-    await pollUntilDone(taskId)
+    // 持久化生成图到 R2
+    const { r2Key: imageR2Key, publicUrl: imageUrl } = await r2Persistor.persist(
+      imageResult.imageUrl,
+      petId,
+    )
 
-    // Step D: 取结果图片 URL
-    const imageUrl = await getResultUrl(taskId)
+    // 清理 zzz 临时库（非阻塞）
+    if (ctx) ctx.waitUntil(zzzStudioCleanup(taskRef))
 
-    // Step E: 清理临时库（异步，不阻塞响应）
-    cleanupLibrary(libraryId).catch(() => {})
-    libraryId = undefined
+    // LLM 生成属性
+    const attrs = await openRouterGenerator.generate({ imageUrl, memoryHint })
 
-    // Step F: 生成宠物信息（变化区——后面换 AI）
-    const petInfo = await generatePetInfo(imageUrl)
+    const pet = await createPet({
+      id: petId,
+      ownerId: userId,
+      ...attrs,
+      imageR2Key,
+      imageUrl,
+      imageOriginUrl: imageResult.imageUrl,
+      doodleR2Key: doodleResult?.key ?? null,
+      exp: 0,
+      stage: '幼年',
+      status: 'alive',
+    })
 
-    const pet: Pet = { id: crypto.randomUUID(), ...petInfo, imageUrl }
-    return NextResponse.json({ pet, imageUrl })
+    emit({ type: 'pet.born', petId: pet.id, ownerId: userId, at: Date.now() })
 
+    const display: DisplayPet = {
+      id: pet.id,
+      name: pet.name,
+      habitat: pet.habitat,
+      personality: pet.personality,
+      skills: pet.skills,
+      hp: pet.hp,
+      story: pet.story,
+      imageUrl: pet.imageUrl,
+      stage: pet.stage,
+      createdAt: pet.createdAt,
+    }
+    return NextResponse.json({ pet: display })
   } catch (err) {
     console.error('[/api/generate] error:', err)
-    if (libraryId) cleanupLibrary(libraryId).catch(() => {})
-
-    const pet: Pet = { id: crypto.randomUUID(), ...FALLBACK_PET }
-    return NextResponse.json({ pet, imageUrl: null, fallback: true })
+    if (taskRef && ctx) ctx.waitUntil(zzzStudioCleanup(taskRef))
+    return NextResponse.json({ pet: { ...FALLBACK, id: petId }, fallback: true })
   }
 }

@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
-import type { Pet } from '@/types/pet'
+import type { DisplayPet } from '@/types/pet'
 
 interface Props {
-  pet: Pet
+  pet: DisplayPet
   onReset: () => void
 }
 

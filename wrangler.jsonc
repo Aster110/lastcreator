@@ -19,5 +19,19 @@
 	"routes": [
 		{ "pattern": "lastcreator.cc", "custom_domain": true },
 		{ "pattern": "www.lastcreator.cc", "custom_domain": true }
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "lastcreator",
+			"database_id": "d7c0fa27-5293-46e1-9d5f-f744ff244407",
+			"migrations_dir": "src/lib/db/migrations"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "MEDIA",
+			"bucket_name": "lastcreator-media"
+		}
 	]
 }
