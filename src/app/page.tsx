@@ -8,25 +8,32 @@ import type { Pet } from '@/types/pet'
 
 type Phase = 'home' | 'drawing' | 'loading' | 'result'
 
-const MOCK_PET: Pet = {
-  id: 'mock-1',
-  name: '烈焰球兽',
-  habitat: '火域深渊',
-  personality: '暴躁但忠诚',
-  skills: ['火焰冲击', '熔岩护盾', '爆裂突进'],
-  hp: 100,
-  story: '它诞生于世界燃尽后的第一缕火焰，守护着最后的幸存者。',
-}
-
 export default function Home() {
   const [phase, setPhase] = useState<Phase>('home')
   const [pet, setPet] = useState<Pet | null>(null)
 
   const handleConfirm = async (dataUrl: string) => {
     setPhase('loading')
-    // TODO: 接 /api/generate
-    await new Promise(r => setTimeout(r, 3000))
-    setPet(MOCK_PET)
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageDataUrl: dataUrl }),
+      })
+      const data = await res.json() as { pet: Pet; imageUrl: string | null }
+      const { pet: p, imageUrl } = data
+      setPet({ ...p, imageUrl: imageUrl ?? undefined })
+    } catch {
+      setPet({
+        id: crypto.randomUUID(),
+        name: '神秘生命体',
+        habitat: '末日废墟',
+        personality: '神秘而古老',
+        skills: ['虚空凝视', '时间感知', '意志具现'],
+        hp: 100,
+        story: '它从你的笔触中诞生，带着世界最后的记忆。',
+      })
+    }
     setPhase('result')
   }
 

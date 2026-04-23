@@ -1,0 +1,92 @@
+const BASE = 'https://imagestudio.riveroll.top'
+const POLL_INTERVAL_MS = 3000
+const POLL_TIMEOUT_MS = 50000
+
+function token(): string {
+  const t = process.env.ZZZ_ACCESS_TOKEN
+  if (!t) throw new Error('ZZZ_ACCESS_TOKEN not configured')
+  return t
+}
+
+function authHeaders(): Record<string, string> {
+  return { Authorization: `Bearer ${token()}` }
+}
+
+export interface UploadResult {
+  libraryId: string
+  personId: string
+}
+
+export async function uploadDoodle(base64DataUrl: string): Promise<UploadResult> {
+  const [, base64] = base64DataUrl.split(',')
+  const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+  const blob = new Blob([bytes], { type: 'image/png' })
+
+  const form = new FormData()
+  form.append('files', blob, 'doodle.png')
+  form.append('library_name', `lc_${Date.now()}`)
+
+  const res = await fetch(`${BASE}/api/test-field/person-library/create-from-folder`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
+  })
+  if (!res.ok) throw new Error(`zzz upload failed: ${res.status}`)
+
+  const data = await res.json() as { id?: string; models?: { id: string }[] }
+  const personId = data?.models?.[0]?.id
+  if (!data?.id || !personId) throw new Error('zzz upload: missing ids')
+
+  return { libraryId: data.id, personId }
+}
+
+export async function submitGenerate(
+  prompt: string,
+  libraryId: string,
+  personId: string,
+): Promise<string> {
+  const res = await fetch(`${BASE}/api/test-field/generate`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt,
+      model_ids: ['gemini-2.5-flash-image'],
+      dimension_mode: 'preset',
+      aspect_ratio: '1:1',
+      person_ids: [{ library_id: libraryId, model_id: personId }],
+    }),
+  })
+  if (!res.ok) throw new Error(`zzz generate failed: ${res.status}`)
+
+  const { task_id } = await res.json() as { task_id?: string }
+  if (!task_id) throw new Error('zzz generate: no task_id')
+  return task_id
+}
+
+export async function pollUntilDone(taskId: string): Promise<void> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS
+  while (Date.now() < deadline) {
+    const res = await fetch(`${BASE}/api/tasks/${taskId}`, { headers: authHeaders() })
+    const data = await res.json() as { task?: { status?: string; error_message?: string } }
+    const status = (data?.task?.status ?? '').toLowerCase()
+    if (status === 'completed') return
+    if (status === 'failed') throw new Error(`zzz task failed: ${data?.task?.error_message}`)
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+  }
+  throw new Error('zzz poll timeout')
+}
+
+export async function getResultUrl(taskId: string): Promise<string> {
+  const res = await fetch(`${BASE}/api/test-field/${taskId}/results`, { headers: authHeaders() })
+  const data = await res.json() as { images?: { image_url?: string }[] }
+  const url = data?.images?.[0]?.image_url
+  if (!url) throw new Error('zzz: no result image')
+  return url
+}
+
+export async function cleanupLibrary(libraryId: string): Promise<void> {
+  await fetch(`${BASE}/api/test-field/person-library/${libraryId}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  }).catch(() => {})
+}
