@@ -19,13 +19,15 @@ interface TasksPayload {
 export default function MePetDetailClient({ pet: initialPet }: Props) {
   const [pet, setPet] = useState(initialPet)
   const [tasks, setTasks] = useState<TasksPayload | null>(null)
+  const [releasing, setReleasing] = useState(false)
 
   useEffect(() => {
+    if (pet.status !== 'alive') return
     fetch(`/api/pets/${pet.id}/tasks`)
       .then(r => r.json() as Promise<TasksPayload>)
       .then(setTasks)
       .catch(() => {})
-  }, [pet.id])
+  }, [pet.id, pet.status])
 
   const handleCompleted = (state: { hp: number; exp: number }) => {
     setPet(p => ({ ...p, hp: state.hp, exp: state.exp }))
@@ -34,6 +36,24 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
       .then(r => r.json() as Promise<TasksPayload>)
       .then(setTasks)
       .catch(() => {})
+  }
+
+  const handleRelease = async () => {
+    if (!confirm(`确认要放生 ${pet.name} 吗？放生后不能召回。`)) return
+    setReleasing(true)
+    try {
+      const res = await fetch(`/api/pets/${pet.id}/release`, { method: 'POST' })
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string }
+        alert(`放生失败：${j.error ?? res.status}`)
+        return
+      }
+      const data = (await res.json()) as { state: { status: FullPet['status'] } }
+      setPet(p => ({ ...p, status: data.state.status }))
+      setTasks(null)
+    } finally {
+      setReleasing(false)
+    }
   }
 
   return (
@@ -80,23 +100,31 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
           </div>
         </div>
 
-        {/* 任务面板 */}
-        <div>
-          <p className="text-gray-600 text-xs mb-2">当前任务</p>
-          {tasks === null ? (
-            <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-4 text-gray-600 text-xs">
-              加载中...
-            </div>
-          ) : (
-            <TaskPanel
-              petId={pet.id}
-              task={tasks.active}
-              dailyDone={tasks.dailyDone}
-              dailyMax={tasks.dailyMax}
-              onCompleted={handleCompleted}
-            />
-          )}
-        </div>
+        {/* 任务面板 / 非活状态提示 */}
+        {pet.status === 'alive' ? (
+          <div>
+            <p className="text-gray-600 text-xs mb-2">当前任务</p>
+            {tasks === null ? (
+              <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-4 text-gray-600 text-xs">
+                加载中...
+              </div>
+            ) : (
+              <TaskPanel
+                petId={pet.id}
+                task={tasks.active}
+                dailyDone={tasks.dailyDone}
+                dailyMax={tasks.dailyMax}
+                onCompleted={handleCompleted}
+              />
+            )}
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-gray-900/40 border border-gray-800 px-4 py-3 text-center">
+            <p className="text-gray-500 text-xs">
+              {pet.status === 'released' ? '🕊️ 已放生，自由地生活在末日' : '🕯️ 已安息'}
+            </p>
+          </div>
+        )}
 
         {/* 原涂鸦（只有 owner 能看） */}
         {pet.doodleR2Key && (
@@ -119,9 +147,18 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
           <p className="text-gray-400 text-sm leading-relaxed">{pet.story}</p>
         </div>
 
-        {/* 分享 */}
-        <div className="pt-2">
+        {/* 分享 + 放生 */}
+        <div className="pt-2 space-y-2">
           <ShareActions petId={pet.id} petName={pet.name} story={pet.story} className="w-full" />
+          {pet.status === 'alive' && (
+            <button
+              onClick={handleRelease}
+              disabled={releasing}
+              className="w-full h-12 rounded-full bg-gray-900 border border-gray-800 text-gray-500 text-sm active:scale-95 transition-transform disabled:opacity-40"
+            >
+              {releasing ? '放生中...' : '🕊️ 放生'}
+            </button>
+          )}
         </div>
       </div>
     </div>
