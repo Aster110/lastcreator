@@ -125,3 +125,11 @@ export async function earliestPetCreatedAt(): Promise<number | null> {
     .first<{ t: number | null }>()
   return row?.t ?? null
 }
+
+export async function sumAliveHp(): Promise<number> {
+  const db = getDb()
+  const row = await db
+    .prepare("SELECT COALESCE(SUM(hp), 0) as s FROM pets WHERE status = 'alive'")
+    .first<{ s: number }>()
+  return row?.s ?? 0
+}
