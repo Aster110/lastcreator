@@ -77,21 +77,27 @@ export default async function PublicPetPage({ params }: PageProps) {
   const birthDateStr = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
 
   return (
-    <div className="fixed inset-0 bg-gray-950 flex flex-col px-6 py-10 overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-gray-950 flex flex-col px-6 py-10 overflow-y-auto bg-cover bg-center bg-no-repeat bg-fixed"
+      style={{ backgroundImage: 'url(/daily-bg.jpg)' }}
+    >
+      {/* 暗色遮罩：统一反差 */}
+      <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+
       {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="text-gray-600 text-xs tracking-widest uppercase">神笔 · 末日档案</div>
+      <div className="relative flex items-center justify-between shrink-0">
+        <div className="text-white/70 text-xs tracking-widest uppercase [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">神笔 · 末日档案</div>
         <Link
           href="/"
-          className="text-gray-400 text-xs hover:text-gray-200 transition-colors"
+          className="text-white/85 text-xs hover:text-white transition-colors [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
         >
           返回主页 →
         </Link>
       </div>
 
-      <div className="flex-1 flex flex-col items-center gap-5 mt-8">
+      <div className="relative flex-1 flex flex-col items-center gap-5 mt-8">
         {/* 宠物图像 */}
-        <div className="w-60 h-60 rounded-2xl bg-gray-800 overflow-hidden anim-scale-in">
+        <div className="w-60 h-60 rounded-2xl bg-gray-800 overflow-hidden anim-scale-in ring-1 ring-white/10 shadow-2xl">
           {pet.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -106,7 +112,7 @@ export default async function PublicPetPage({ params }: PageProps) {
 
         {/* 名字 */}
         <h1
-          className="text-white text-3xl font-bold anim-fade-up anim-glow"
+          className="text-white text-3xl font-bold anim-fade-up anim-glow [text-shadow:0_2px_6px_rgba(0,0,0,0.7)]"
           style={{ animationDelay: '300ms' }}
         >
           {pet.name}
@@ -114,13 +120,13 @@ export default async function PublicPetPage({ params }: PageProps) {
 
         {/* 诞生铭牌（末日第 N 天诞生 · 存活 X 天） */}
         <div
-          className="text-center space-y-0.5 anim-fade"
+          className="text-center space-y-0.5 anim-fade [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
           style={{ animationDelay: '400ms' }}
         >
-          <p className="text-gray-400 text-xs tracking-wider">
-            诞生于末日第 <span className="text-gray-200 tabular-nums">{birthDay}</span> 天
+          <p className="text-white/80 text-xs tracking-wider">
+            诞生于末日第 <span className="text-white tabular-nums">{birthDay}</span> 天
           </p>
-          <p className="text-gray-600 text-[10px]">
+          <p className="text-white/60 text-[10px]">
             {birthDateStr}
             {ageDays > 0 && ` · 已陪伴 ${ageDays} 天`}
           </p>
@@ -131,7 +137,7 @@ export default async function PublicPetPage({ params }: PageProps) {
           className="flex flex-col items-center gap-1 anim-fade-up"
           style={{ animationDelay: '460ms' }}
         >
-          <p className="text-gray-600 text-[10px] tracking-widest uppercase">剩余生命</p>
+          <p className="text-white/70 text-[10px] tracking-widest uppercase [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">剩余生命</p>
           <Countdown
             expiresAt={pet.lifeExpiresAt}
             status={pet.status}
@@ -155,7 +161,7 @@ export default async function PublicPetPage({ params }: PageProps) {
         {/* 技能 */}
         <div className="w-full max-w-sm">
           <p
-            className="text-gray-600 text-xs mb-2 anim-fade"
+            className="text-white/70 text-xs mb-2 anim-fade [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
             style={{ animationDelay: '600ms' }}
           >
             技能
@@ -164,7 +170,7 @@ export default async function PublicPetPage({ params }: PageProps) {
             {pet.skills.map((s, i) => (
               <span
                 key={s}
-                className="px-3 py-1 rounded-full bg-gray-800 text-gray-300 text-xs anim-fade-up"
+                className="px-3 py-1 rounded-full bg-white/10 border border-white/15 text-white text-xs anim-fade-up backdrop-blur-sm"
                 style={{ animationDelay: `${650 + i * 120}ms` }}
               >
                 {s}
@@ -175,7 +181,7 @@ export default async function PublicPetPage({ params }: PageProps) {
 
         {/* 故事 */}
         <p
-          className="text-gray-500 text-xs leading-relaxed text-center max-w-sm anim-fade px-6"
+          className="text-white/80 text-xs leading-relaxed text-center max-w-sm anim-fade px-6 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
           style={{ animationDelay: `${650 + pet.skills.length * 120 + 100}ms` }}
         >
           {pet.story}
@@ -186,13 +192,13 @@ export default async function PublicPetPage({ params }: PageProps) {
           className="w-full max-w-sm mt-4 anim-fade"
           style={{ animationDelay: `${650 + pet.skills.length * 120 + 200}ms` }}
         >
-          <p className="text-gray-600 text-xs mb-2">任务履历 · {doneTasks} 次完成</p>
+          <p className="text-white/70 text-xs mb-2 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">任务履历 · {doneTasks} 次完成</p>
           <TaskHistoryList tasks={history} />
         </div>
       </div>
 
       {/* 底部 CTA + 分享 */}
-      <div className="flex flex-col gap-3 mt-8 shrink-0">
+      <div className="relative flex flex-col gap-3 mt-8 shrink-0">
         <ShareActions
           petId={pet.id}
           petName={pet.name}
@@ -221,9 +227,9 @@ export default async function PublicPetPage({ params }: PageProps) {
 
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
-    <div className="flex justify-between text-gray-500">
+    <div className="flex justify-between text-white/75 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
       <span>{label}</span>
-      <span className={highlight ? 'text-white tabular-nums' : 'text-gray-300'}>{value}</span>
+      <span className={highlight ? 'text-white tabular-nums' : 'text-white'}>{value}</span>
     </div>
   )
 }
