@@ -3,6 +3,7 @@ import { ensureSubscribers } from '@/lib/events/subscribers'
 import { resolveUser } from '@/lib/identity'
 import { getFullPet } from '@/lib/repo/petState'
 import { randomAssigner } from '@/lib/game/tasks/assigner'
+import { computeWorld } from '@/lib/game/world'
 import { countCompletedToday, listHistoryForPet } from '@/lib/repo/tasks'
 import { MAX_DAILY_TASKS } from '@/lib/game/rules'
 import type { DisplayTask, Task } from '@/types/task'
@@ -28,7 +29,12 @@ export async function GET(
     if (!pet) return NextResponse.json({ error: 'not found' }, { status: 404 })
     if (pet.ownerId !== userId) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
-    const task = pet.status === 'alive' ? await randomAssigner.getOrAssign(id) : null
+    // v3.7: assigner 需要 pet 对象和 world 状态
+    let task = null
+    if (pet.status === 'alive') {
+      const world = await computeWorld()
+      task = await randomAssigner.getOrAssign(pet, world)
+    }
     const [dailyDone, historyRaw] = await Promise.all([
       countCompletedToday(id),
       listHistoryForPet(id, 20),
