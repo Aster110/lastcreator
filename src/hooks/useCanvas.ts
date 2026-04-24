@@ -93,7 +93,21 @@ export function useCanvas({ strokeColor = '#ffffff', lineWidth = 5 }: UseCanvasO
   }, [])
 
   const getDataUrl = useCallback(() => {
-    return canvasRef.current?.toDataURL('image/png') ?? ''
+    const src = canvasRef.current
+    if (!src) return ''
+    // zzz-studio 不接受透明背景或过小的图，导出时填白底 + 放大到 1024×1024 居中保比例
+    const OUT = 1024
+    const out = document.createElement('canvas')
+    out.width = OUT
+    out.height = OUT
+    const ctx = out.getContext('2d')!
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, OUT, OUT)
+    const scale = Math.min(OUT / src.width, OUT / src.height)
+    const dw = src.width * scale
+    const dh = src.height * scale
+    ctx.drawImage(src, (OUT - dw) / 2, (OUT - dh) / 2, dw, dh)
+    return out.toDataURL('image/png')
   }, [])
 
   return { canvasRef, clear, getDataUrl, hasDrawn }

@@ -41,7 +41,7 @@ async function submitGenerate(prompt: string, libraryId: string, personId: strin
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
-      model_ids: ['gemini-2.5-flash-image'],
+      model_ids: ['wavespeed-gpt-image-1.5'],
       dimension_mode: 'preset',
       aspect_ratio: '1:1',
       person_ids: [{ library_id: libraryId, model_id: personId }],
