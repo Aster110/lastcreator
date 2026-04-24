@@ -93,11 +93,11 @@ async function main() {
 
     console.log('\n📍 Step 6: 断言 PetCard 内容')
     const resultText = await page.locator('body').innerText()
-    const hasHp = /HP/.test(resultText)
+    const hasLife = /剩余生命|安息|放生/.test(resultText)
     const hasHabitat = /栖息地/.test(resultText)
     const hasSkills = /技能/.test(resultText)
-    console.log(`   HP: ${hasHp ? '✅' : '❌'} / 栖息地: ${hasHabitat ? '✅' : '❌'} / 技能: ${hasSkills ? '✅' : '❌'}`)
-    if (!hasHp || !hasHabitat || !hasSkills) throw new Error('PetCard 缺字段')
+    console.log(`   生命: ${hasLife ? '✅' : '❌'} / 栖息地: ${hasHabitat ? '✅' : '❌'} / 技能: ${hasSkills ? '✅' : '❌'}`)
+    if (!hasLife || !hasHabitat || !hasSkills) throw new Error('PetCard 缺字段')
 
     // 提取宠物图的 src
     const imgSrc = await page.locator('img[alt]').first().getAttribute('src').catch(() => null)
