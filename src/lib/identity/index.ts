@@ -12,8 +12,25 @@ export interface ResolvedUser {
 }
 
 /**
+ * 只读模式：从 cookie 查已有 user。**不写 cookie**，适合 Server Component。
+ * 无 cookie 或 user 不存在时返回 null。
+ */
+export async function readUser(): Promise<ResolvedUser | null> {
+  const jar = await cookies()
+  const anon = jar.get(COOKIE_NAME)?.value
+  if (!anon) return null
+  const db = getDb()
+  const existing = await db
+    .prepare("SELECT id FROM users WHERE anon_ids LIKE ? LIMIT 1")
+    .bind(`%"${anon}"%`)
+    .first<{ id: string }>()
+  if (!existing) return null
+  return { userId: existing.id, anonId: anon, isNew: false }
+}
+
+/**
  * 从 Request cookie 解析身份；若无则创建匿名 user + set-cookie
- * 只能在 Next.js server component / route handler 里调用（依赖 cookies()）
+ * **只能在 Route Handler / Server Action 里调用**（写 cookie）
  */
 export async function resolveUser(): Promise<ResolvedUser> {
   const jar = await cookies()

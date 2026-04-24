@@ -1,16 +1,16 @@
 import Link from 'next/link'
-import { resolveUser } from '@/lib/identity'
+import { readUser } from '@/lib/identity'
 import { listPetsByOwner } from '@/lib/repo/pets'
 import { computeWorld } from '@/lib/game/world'
 import GalleryGrid from '@/components/GalleryGrid'
-import type { DisplayPet } from '@/types/pet'
+import type { DisplayPet, Pet } from '@/types/pet'
 
 export const dynamic = 'force-dynamic'
 
 export default async function MePage() {
-  const { userId } = await resolveUser()
+  const user = await readUser()
   const [pets, world] = await Promise.all([
-    listPetsByOwner(userId, { limit: 200 }),
+    user ? listPetsByOwner(user.userId, { limit: 200 }) : Promise.resolve([] as Pet[]),
     computeWorld(),
   ])
   const display: DisplayPet[] = pets.map(p => ({
