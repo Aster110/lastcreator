@@ -1,11 +1,14 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { readUser } from '@/lib/identity'
 import { getFullPet } from '@/lib/repo/petState'
 import { computePetBirthDay, computePetAgeDays } from '@/lib/game/world'
-import { countDoneTasksForPet } from '@/lib/repo/tasks'
+import { countDoneTasksForPet, listHistoryForPet } from '@/lib/repo/tasks'
 import ShareActions from '@/components/ui/ShareActions'
 import Countdown from '@/components/ui/Countdown'
+import TaskHistoryList from '@/components/ui/TaskHistoryList'
+import type { DisplayTask } from '@/types/task'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,10 +55,23 @@ export default async function PublicPetPage({ params }: PageProps) {
   const pet = await getFullPet(id)
   if (!pet) notFound()
 
-  const [birthDay, doneTasks] = await Promise.all([
+  const [birthDay, doneTasks, historyTasks, viewer] = await Promise.all([
     computePetBirthDay(pet.createdAt),
     countDoneTasksForPet(pet.id),
+    listHistoryForPet(pet.id, 20),
+    readUser(),
   ])
+  const isOwner = !!viewer && viewer.userId === pet.ownerId
+  const history: DisplayTask[] = historyTasks.map(t => ({
+    id: t.id,
+    kind: t.kind,
+    prompt: t.prompt,
+    reward: t.reward,
+    status: t.status,
+    expiresAt: t.expiresAt,
+    proofR2Key: t.proofR2Key,
+    aiVerdict: t.aiVerdict,
+  }))
   const ageDays = computePetAgeDays(pet.createdAt)
   const birthDate = new Date(pet.createdAt)
   const birthDateStr = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
@@ -164,6 +180,15 @@ export default async function PublicPetPage({ params }: PageProps) {
         >
           {pet.story}
         </p>
+
+        {/* 任务历史（所有人可看，只读） */}
+        <div
+          className="w-full max-w-sm mt-4 anim-fade"
+          style={{ animationDelay: `${650 + pet.skills.length * 120 + 200}ms` }}
+        >
+          <p className="text-gray-600 text-xs mb-2">任务履历 · {doneTasks} 次完成</p>
+          <TaskHistoryList tasks={history} />
+        </div>
       </div>
 
       {/* 底部 CTA + 分享 */}
@@ -174,12 +199,21 @@ export default async function PublicPetPage({ params }: PageProps) {
           story={pet.story}
           className="w-full"
         />
-        <Link
-          href="/draw"
-          className="flex items-center justify-center w-full h-14 rounded-full bg-white text-gray-900 font-semibold text-base active:scale-95 transition-transform"
-        >
-          我也要画一个
-        </Link>
+        {isOwner ? (
+          <Link
+            href={`/me/${pet.id}`}
+            className="flex items-center justify-center w-full h-14 rounded-full bg-white text-gray-900 font-semibold text-base active:scale-95 transition-transform"
+          >
+            去做任务 →
+          </Link>
+        ) : (
+          <Link
+            href="/draw"
+            className="flex items-center justify-center w-full h-14 rounded-full bg-white text-gray-900 font-semibold text-base active:scale-95 transition-transform"
+          >
+            我也要画一个
+          </Link>
+        )}
       </div>
     </div>
   )
