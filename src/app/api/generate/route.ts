@@ -109,10 +109,15 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('[/api/generate] error:', err)
     if (taskRef && ctx) ctx.waitUntil(zzzStudioCleanup(taskRef))
-    const debugInfo =
-      process.env.NODE_ENV !== 'production'
-        ? { error: err instanceof Error ? err.message : String(err) }
-        : {}
-    return NextResponse.json({ pet: { ...FALLBACK, id: petId }, fallback: true, ...debugInfo })
+    const msg = err instanceof Error ? err.message : String(err)
+    // 429 = 上游图生图限流（zzz 'zzz generate failed: 429'），UX 上单独走"世界拒绝"分支
+    const isRateLimit = /\b429\b/.test(msg)
+    const debugInfo = process.env.NODE_ENV !== 'production' ? { error: msg } : {}
+    return NextResponse.json({
+      pet: { ...FALLBACK, id: petId },
+      fallback: true,
+      reason: isRateLimit ? 'rate_limit' : 'error',
+      ...debugInfo,
+    })
   }
 }

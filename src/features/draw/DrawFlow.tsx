@@ -31,10 +31,12 @@ const FALLBACK: DisplayPet = {
  * 点 ✓ 即并发启动 /api/generate，两段过场视频覆盖 AI 生成时间。
  * 生成成功（pet 到手）后不再内部渲染 PetCard，改跳 /me?welcome=1，/me 会挂 WelcomeOverlay 展示 yes.jpg。
  */
+type FailMode = null | 'rejected' | 'error'
+
 export default function DrawFlow({ open, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('drawing')
   const [pet, setPet] = useState<DisplayPet | null>(null)
-  const [genFailed, setGenFailed] = useState(false)
+  const [failMode, setFailMode] = useState<FailMode>(null)
   const router = useRouter()
 
   // 预取 /me 让 welcome 跳转瞬时
@@ -101,24 +103,25 @@ export default function DrawFlow({ open, onClose }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageDataUrl: dataUrl }),
         })
-        const data = (await res.json()) as { pet: DisplayPet; fallback?: boolean }
-        console.log('[DrawFlow] /api/generate resp, pet.id =', data.pet?.id, 'fallback =', data.fallback)
+        const data = (await res.json()) as { pet: DisplayPet; fallback?: boolean; reason?: 'rate_limit' | 'error' }
+        console.log('[DrawFlow] /api/generate resp, pet.id =', data.pet?.id, 'fallback =', data.fallback, 'reason =', data.reason)
         if (data.fallback) {
-          // 服务端生成失败（返回 fallback 假 pet，没落 DB）→ 不走 welcome 流程，显式提示失败
-          setGenFailed(true)
+          // 429 → rejected（立即打断视频）；其他 error → 让视频继续播，结束后兜底
+          setFailMode(data.reason === 'rate_limit' ? 'rejected' : 'error')
           return
         }
         setPet(data.pet)
       } catch (err) {
         console.error('[generate] network error:', err)
-        setGenFailed(true)
+        // 网络错误算通用 error：让视频继续（表现类似上游超时），结束后兜底
+        setFailMode('error')
       }
     })()
     setPhase('video1')
   }
 
   const handleRetry = () => {
-    setGenFailed(false)
+    setFailMode(null)
     setPet(null)
     setPhase('drawing')
   }
@@ -129,9 +132,9 @@ export default function DrawFlow({ open, onClose }: Props) {
     else setPhase('loading')
   }
 
-  // 生成失败优先级最高：立刻跳出视频流程，显式错误 + 重试
-  if (genFailed) {
-    return <GenFailedScreen onRetry={handleRetry} onBack={onClose} />
+  // rejected（429）优先级最高：立刻打断一切视频，显式"世界拒绝"
+  if (failMode === 'rejected') {
+    return <RejectedScreen onRetry={handleRetry} onBack={onClose} />
   }
 
   if (phase === 'drawing') {
@@ -149,10 +152,11 @@ export default function DrawFlow({ open, onClose }: Props) {
     )
   }
   if (phase === 'waitingForPet') {
+    // 非 429 错误在这阶段暴露出来：视频演完了 pet 还没到，等下去没意义
+    if (failMode === 'error') return <GenFailedScreen onRetry={handleRetry} onBack={onClose} />
     return <WaitingForPet posterSrc="/intro-1-last.jpg" />
   }
   if (phase === 'video2') {
-    // intro-2.mp4 未提供时，video 触发 error → 直接 fallback
     return (
       <FullscreenVideo
         src="/intro-2.mp4"
@@ -162,6 +166,7 @@ export default function DrawFlow({ open, onClose }: Props) {
     )
   }
   if (phase === 'loading') {
+    if (failMode === 'error') return <GenFailedScreen onRetry={handleRetry} onBack={onClose} />
     return <LoadingScreen />
   }
   return null
@@ -243,6 +248,43 @@ function GenFailedScreen({
           className="w-full h-12 rounded-full bg-white text-gray-900 font-semibold active:scale-95 transition-transform"
         >
           重新画
+        </button>
+        <button
+          onClick={onBack}
+          className="w-full h-12 rounded-full bg-gray-900 border border-gray-800 text-gray-400 text-sm active:scale-95 transition-transform"
+        >
+          返回档案
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 429（上游图生图限流）专属画面：打断一切视频，叙事化 "world rejected"
+ */
+function RejectedScreen({
+  onRetry,
+  onBack,
+}: {
+  onRetry: () => void
+  onBack: () => void
+}) {
+  return (
+    <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-8 px-8">
+      <div className="text-6xl opacity-70">🕯️</div>
+      <div className="text-center space-y-3">
+        <p className="text-white text-xl font-semibold tracking-wider [text-shadow:0_0_20px_rgba(220,50,50,0.4)]">
+          这个世界拒绝了你的召唤
+        </p>
+        <p className="text-gray-500 text-xs tracking-widest">稍后再试</p>
+      </div>
+      <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
+        <button
+          onClick={onRetry}
+          className="w-full h-12 rounded-full bg-white text-gray-900 font-semibold active:scale-95 transition-transform"
+        >
+          重新召唤
         </button>
         <button
           onClick={onBack}
