@@ -92,6 +92,15 @@ export async function findActiveTaskForPet(petId: string): Promise<Task | null> 
   return task
 }
 
+export async function countDoneTasksForPet(petId: string): Promise<number> {
+  const db = getDb()
+  const row = await db
+    .prepare("SELECT COUNT(*) as n FROM tasks WHERE pet_id = ? AND status = 'done'")
+    .bind(petId)
+    .first<{ n: number }>()
+  return row?.n ?? 0
+}
+
 export async function countCompletedToday(petId: string): Promise<number> {
   const db = getDb()
   const startOfDay = new Date()

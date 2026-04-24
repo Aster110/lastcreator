@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getPet } from '@/lib/repo/pets'
+import { getFullPet } from '@/lib/repo/petState'
+import { computePetBirthDay, computePetAgeDays } from '@/lib/game/world'
+import { countDoneTasksForPet } from '@/lib/repo/tasks'
 import ShareActions from '@/components/ShareActions'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +17,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!id?.startsWith('p_')) return { title: '未找到 · 神笔' }
 
   try {
-    const pet = await getPet(id)
+    const pet = await getFullPet(id)
     if (!pet) return { title: '未找到这只宠物 · 神笔' }
 
     const title = `${pet.name} · ${pet.habitat}`
@@ -46,8 +48,16 @@ export default async function PublicPetPage({ params }: PageProps) {
   const { id } = await params
   if (!id?.startsWith('p_')) notFound()
 
-  const pet = await getPet(id)
+  const pet = await getFullPet(id)
   if (!pet) notFound()
+
+  const [birthDay, doneTasks] = await Promise.all([
+    computePetBirthDay(pet.createdAt),
+    countDoneTasksForPet(pet.id),
+  ])
+  const ageDays = computePetAgeDays(pet.createdAt)
+  const birthDate = new Date(pet.createdAt)
+  const birthDateStr = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
 
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col px-6 py-10 overflow-y-auto">
@@ -85,27 +95,31 @@ export default async function PublicPetPage({ params }: PageProps) {
           {pet.name}
         </h1>
 
+        {/* 诞生铭牌（末日第 N 天诞生 · 存活 X 天） */}
+        <div
+          className="text-center space-y-0.5 anim-fade"
+          style={{ animationDelay: '400ms' }}
+        >
+          <p className="text-gray-400 text-xs tracking-wider">
+            诞生于末日第 <span className="text-gray-200 tabular-nums">{birthDay}</span> 天
+          </p>
+          <p className="text-gray-600 text-[10px]">
+            {birthDateStr}
+            {ageDays > 0 && ` · 已陪伴 ${ageDays} 天`}
+          </p>
+        </div>
+
         {/* 属性 */}
         <div
           className="w-full max-w-sm space-y-2 text-sm anim-fade-up"
           style={{ animationDelay: '480ms' }}
         >
-          <div className="flex justify-between text-gray-500">
-            <span>栖息地</span>
-            <span className="text-gray-300">{pet.habitat}</span>
-          </div>
-          <div className="flex justify-between text-gray-500">
-            <span>性格</span>
-            <span className="text-gray-300">{pet.personality}</span>
-          </div>
-          <div className="flex justify-between text-gray-500">
-            <span>HP</span>
-            <span className="text-gray-300">{pet.hp}</span>
-          </div>
-          <div className="flex justify-between text-gray-500">
-            <span>阶段</span>
-            <span className="text-gray-300">{pet.stage}</span>
-          </div>
+          <Row label="栖息地" value={pet.habitat} />
+          <Row label="性格" value={pet.personality} />
+          <Row label="阶段" value={pet.stage} />
+          <Row label="HP" value={String(pet.hp)} highlight />
+          <Row label="EXP" value={String(pet.exp)} highlight />
+          <Row label="完成任务" value={String(doneTasks)} />
         </div>
 
         {/* 技能 */}
@@ -153,6 +167,15 @@ export default async function PublicPetPage({ params }: PageProps) {
           我也要画一个
         </Link>
       </div>
+    </div>
+  )
+}
+
+function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="flex justify-between text-gray-500">
+      <span>{label}</span>
+      <span className={highlight ? 'text-white tabular-nums' : 'text-gray-300'}>{value}</span>
     </div>
   )
 }
