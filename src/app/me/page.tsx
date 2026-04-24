@@ -53,7 +53,7 @@ export default async function MePage({ searchParams }: PageProps) {
         <h1 className="text-gray-200 text-base tracking-widest">末日档案</h1>
         <Link
           href="/gallery"
-          className="text-gray-500 text-xs px-2"
+          className="text-white text-sm px-2"
         >
           图鉴
         </Link>
