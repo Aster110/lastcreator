@@ -4,11 +4,17 @@ import { listFullPetsByOwner } from '@/lib/repo/petState'
 import { countDoneTasksForPet } from '@/lib/repo/tasks'
 import { computeWorld } from '@/lib/game/world'
 import GalleryGrid from '@/components/ui/GalleryGrid'
+import WelcomeOverlay from '@/components/ui/WelcomeOverlay'
 import type { DisplayPet, FullPet } from '@/types/pet'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MePage() {
+interface PageProps {
+  searchParams: Promise<{ welcome?: string }>
+}
+
+export default async function MePage({ searchParams }: PageProps) {
+  const sp = await searchParams
   const user = await readUser()
   const [pets, world] = await Promise.all([
     user ? listFullPetsByOwner(user.userId, { limit: 200 }) : Promise.resolve([] as FullPet[]),
@@ -33,7 +39,10 @@ export default async function MePage() {
   }))
 
   return (
-    <div className="fixed inset-0 bg-gray-950 flex flex-col overflow-hidden">
+    <div
+      className="fixed inset-0 bg-gray-950 flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: 'url(/daily-bg.jpg)' }}
+    >
       <div className="flex items-center justify-between px-5 pt-10 pb-4 shrink-0">
         <Link
           href="/"
@@ -42,7 +51,12 @@ export default async function MePage() {
           ←
         </Link>
         <h1 className="text-gray-200 text-base tracking-widest">末日档案</h1>
-        <div className="w-10" />
+        <Link
+          href="/gallery"
+          className="text-gray-500 text-xs px-2"
+        >
+          图鉴
+        </Link>
       </div>
 
       <div className="px-5 pb-4 shrink-0">
@@ -68,7 +82,7 @@ export default async function MePage() {
         <GalleryGrid pets={display} />
       </div>
 
-      <div className="absolute bottom-0 inset-x-0 px-5 pb-8 pt-6 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent">
+      <div className="absolute bottom-0 inset-x-0 px-5 pb-8 pt-6 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
         <Link
           href="/draw"
           className="flex items-center justify-center w-full h-14 rounded-full bg-white text-gray-900 font-semibold text-base active:scale-95 transition-transform"
@@ -76,6 +90,8 @@ export default async function MePage() {
           + 召唤新生命
         </Link>
       </div>
+
+      <WelcomeOverlay pet={sp.welcome === '1' ? (display.slice().sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0] ?? null) : null} />
     </div>
   )
 }

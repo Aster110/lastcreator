@@ -7,9 +7,11 @@ interface Props {
   petName?: string
   story?: string
   className?: string
+  /** subtle = 灰底（默认，详情页/公开页）；primary = 白底，用在 Welcome 主 CTA 区 */
+  variant?: 'subtle' | 'primary'
 }
 
-export default function ShareActions({ petId, className = '' }: Props) {
+export default function ShareActions({ petId, className = '', variant = 'subtle' }: Props) {
   const [copied, setCopied] = useState(false)
 
   const handleShare = async () => {
@@ -26,15 +28,20 @@ export default function ShareActions({ petId, className = '' }: Props) {
     }
   }
 
+  const variantCls =
+    variant === 'primary'
+      ? 'h-14 bg-white text-gray-900 text-sm font-semibold'
+      : 'h-12 bg-gray-800 text-gray-300 text-sm'
+
   return (
     <button
       onClick={handleShare}
-      className={`flex items-center justify-center gap-2 h-12 px-6 rounded-full bg-gray-800 text-gray-300 text-sm active:scale-95 transition-transform ${className}`}
+      className={`flex items-center justify-center gap-2 px-6 rounded-full active:scale-95 transition-transform ${variantCls} ${className}`}
     >
       {copied ? (
         <>
           <span>✓</span>
-          <span>链接已复制，去粘贴给朋友吧</span>
+          <span>已复制</span>
         </>
       ) : (
         <>

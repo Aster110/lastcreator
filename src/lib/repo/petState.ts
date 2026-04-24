@@ -201,6 +201,31 @@ export async function listFullPetsByOwner(
   return pets
 }
 
+/** 全服图鉴：按创建时间倒序列出所有宠物（不限 owner） */
+export async function listAllFullPets(
+  opts: { limit?: number } = {},
+): Promise<FullPet[]> {
+  const db = getDb()
+  const { limit = 200 } = opts
+  const { results } = await db
+    .prepare(
+      `SELECT ${FULL_PET_COLUMNS} FROM pets p LEFT JOIN pets_state s ON p.id = s.pet_id
+       ORDER BY p.created_at DESC LIMIT ?`,
+    )
+    .bind(limit)
+    .all<FullRow>()
+  const pets = results.map(rowToFull)
+  const now = Date.now()
+  for (const p of pets) {
+    if (shouldMarkDead(p, now)) {
+      await markDead(p.id)
+      p.status = 'dead'
+      p.updatedAt = now
+    }
+  }
+  return pets
+}
+
 /** diff-aware 写入 state */
 export async function patchPetState(petId: string, patch: PetStatePatch): Promise<PetState> {
   const db = getDb()

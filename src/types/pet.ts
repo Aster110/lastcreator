@@ -37,7 +37,7 @@ export type PetCreate = Omit<Pet, 'createdAt' | 'updatedAt'> & {
   updatedAt?: number
 }
 
-/** PetCard / 前端展示视图。API 可返回子集（fallback 时无 image） */
+/** 前端展示视图（DrawFlow、/me gallery 等）。API 可返回子集（fallback 时无 image） */
 export type DisplayPet = {
   id: string
   name: string

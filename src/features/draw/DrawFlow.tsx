@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import DrawingCanvas from './DrawingCanvas'
 import LoadingScreen from './LoadingScreen'
-import PetCard from '@/components/ui/PetCard'
 import type { DisplayPet } from '@/types/pet'
 
-type Phase = 'drawing' | 'video1' | 'waitConfirm' | 'waitingForPet' | 'video2' | 'loading' | 'result'
+type Phase = 'drawing' | 'video1' | 'waitConfirm' | 'waitingForPet' | 'video2' | 'loading'
 
 interface Props {
   /** 开关（父组件控制是否展示整个流程） */
@@ -27,12 +27,19 @@ const FALLBACK: DisplayPet = {
 
 /**
  * 召唤流程子状态机。
- * drawing → video1 → waitConfirm（最后一帧+确定）→ video2 → (loading) → result
+ * drawing → video1 → waitConfirm（最后一帧+确定）→ (waitingForPet) → video2 → (loading) → router.replace('/me?welcome=1')
  * 点 ✓ 即并发启动 /api/generate，两段过场视频覆盖 AI 生成时间。
+ * 生成成功（pet 到手）后不再内部渲染 PetCard，改跳 /me?welcome=1，/me 会挂 WelcomeOverlay 展示 yes.jpg。
  */
 export default function DrawFlow({ open, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('drawing')
   const [pet, setPet] = useState<DisplayPet | null>(null)
+  const router = useRouter()
+
+  // 预取 /me 让 welcome 跳转瞬时
+  useEffect(() => {
+    router.prefetch('/me?welcome=1')
+  }, [router])
 
   // 进入 drawing 即预热两段视频，避免切换时黑屏等待
   useEffect(() => {
@@ -49,11 +56,13 @@ export default function DrawFlow({ open, onClose }: Props) {
     return () => { links.forEach(l => l.remove()) }
   }, [open])
 
-  // 等待态自动推进：pet 到位后，waitingForPet → video2；video2 结束但 pet 未到 → loading → result
+  // 等待态自动推进：
+  // - waitingForPet + pet 到手 → 进 video2
+  // - loading + pet 到手 → 直接跳 welcome 页
   useEffect(() => {
     if (phase === 'waitingForPet' && pet) setPhase('video2')
-    if (phase === 'loading' && pet) setPhase('result')
-  }, [phase, pet])
+    if (phase === 'loading' && pet) router.replace('/me?welcome=1')
+  }, [phase, pet, router])
 
   if (!open) return null
 
@@ -77,12 +86,8 @@ export default function DrawFlow({ open, onClose }: Props) {
   }
 
   const handleVideo2End = () => {
-    setPhase(pet ? 'result' : 'loading')
-  }
-
-  const handleReset = () => {
-    setPhase('drawing')
-    setPet(null)
+    if (pet) router.replace('/me?welcome=1')
+    else setPhase('loading')
   }
 
   if (phase === 'drawing') {
@@ -114,9 +119,6 @@ export default function DrawFlow({ open, onClose }: Props) {
   }
   if (phase === 'loading') {
     return <LoadingScreen />
-  }
-  if (phase === 'result' && pet) {
-    return <PetCard pet={pet} onReset={handleReset} onClose={onClose} />
   }
   return null
 }
