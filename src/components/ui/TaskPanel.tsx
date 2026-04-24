@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import PhotoProof from './PhotoProof'
 import DoodleProof from './DoodleProof'
+import StagedLoading from './StagedLoading'
 import type { DisplayTask, Reward } from '@/types/task'
 
 interface Props {
@@ -87,17 +88,28 @@ export default function TaskPanel({ petId, task, dailyDone, dailyMax, onComplete
         </div>
       )}
 
-      {/* CTA */}
+      {/* CTA / 提交期过场动画 */}
       {task.status === 'pending' && !outcome && (
-        <div className="mt-4 flex gap-2">
-          <button
-            disabled={submitting}
-            onClick={() => setProofMode(task.kind)}
-            className="flex-1 h-11 rounded-full bg-white text-gray-900 text-sm font-semibold active:scale-95 transition-transform disabled:opacity-40"
-          >
-            {submitting ? '提交中...' : task.kind === 'photo' ? '去拍照' : '去涂鸦'}
-          </button>
-        </div>
+        submitting ? (
+          <StagedLoading
+            active={submitting}
+            stages={[
+              { at: 0, content: `🔍 AI 正在端详你的${task.kind === 'photo' ? '照片' : '涂鸦'}...` },
+              { at: 5000, content: '🔎 AI 正在仔细观察细节...' },
+              { at: 15000, content: '🤔 AI 在琢磨中，再等一会...' },
+            ]}
+            className="mt-4 text-center text-gray-400 text-sm py-3"
+          />
+        ) : (
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => setProofMode(task.kind)}
+              className="flex-1 h-11 rounded-full bg-white text-gray-900 text-sm font-semibold active:scale-95 transition-transform"
+            >
+              {task.kind === 'photo' ? '去拍照' : '去涂鸦'}
+            </button>
+          </div>
+        )
       )}
 
       <p className="text-gray-700 text-[10px] mt-3 text-right">
@@ -109,7 +121,7 @@ export default function TaskPanel({ petId, task, dailyDone, dailyMax, onComplete
 
 function rewardText(r: Reward): string {
   const parts: string[] = []
-  if (r.hp) parts.push(`HP +${r.hp}`)
+  if (r.minutes) parts.push(`续命 +${r.minutes}min`)
   if (r.exp) parts.push(`EXP +${r.exp}`)
   if (r.mood) parts.push(`情绪 ${r.mood}`)
   return parts.join(' · ') || '神秘'

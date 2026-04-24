@@ -21,6 +21,7 @@ export const alwaysPassVerifier: TaskVerifier = {
 // ========== 2. Claude Vision（主实现）==========
 
 const VISION_MODEL = 'anthropic/claude-opus-4.6'
+const VISION_TIMEOUT_MS = 30_000
 
 const VISION_SYSTEM = `你是宠物养成游戏的任务视觉验证员。用户要完成宠物派发的任务，会上传一张照片或涂鸦作为证据。
 
@@ -55,9 +56,13 @@ export const claudeVisionVerifier: TaskVerifier = {
     const apiKey = process.env.OPENROUTER_API_KEY
     if (!apiKey) return fallbackVerdict('no api key')
 
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), VISION_TIMEOUT_MS)
+
     try {
       const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
+        signal: ctrl.signal,
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
@@ -104,8 +109,13 @@ export const claudeVisionVerifier: TaskVerifier = {
 
       return { pass, completion, confidence, reason, rawResponse: raw }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return fallbackVerdict(`timeout ${VISION_TIMEOUT_MS / 1000}s`)
+      }
       const msg = err instanceof Error ? err.message : String(err)
       return fallbackVerdict(`error: ${msg.slice(0, 60)}`)
+    } finally {
+      clearTimeout(timer)
     }
   },
 }
