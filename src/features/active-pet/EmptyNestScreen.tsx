@@ -105,7 +105,7 @@ export default function EmptyNestScreen({ lastPet, world }: Props) {
         </Link>
         {lastPet && (
           <Link
-            href={`/me/${lastPet.id}`}
+            href="/me/history"
             className="block w-full h-10 text-white/70 text-sm flex items-center justify-center active:scale-[0.98] transition-transform"
           >
             {COPY.emptyNest.viewTombstone}

@@ -11,12 +11,18 @@ import type { PetStatus } from '@/types/pet'
  */
 
 export const LIFECYCLE = {
-  /** 新宠物初始基础寿命：1h */
-  BASE_LIFE_MS: 60 * 60 * 1000,
-  /** AI 可贡献的最大随机加成：120min */
-  MAX_BONUS_MINUTES: 120,
+  /**
+   * 新宠物初始基础寿命
+   * v3.6: 1h → 27h（给用户"不做任务也有一整天缓冲"的情感空间）
+   */
+  BASE_LIFE_MS: 27 * 60 * 60 * 1000,
+  /**
+   * AI 可贡献的最大随机加成（分钟）
+   * v3.6: 120 → 180（总初始寿命 27-30h）
+   */
+  MAX_BONUS_MINUTES: 180,
   /** 任务 reward.minutes 缺省（模板没写用这个） */
-  TASK_DEFAULT_MINUTES: 120,
+  TASK_DEFAULT_MINUTES: 360,
 } as const
 
 /** 新生宠物的初始 life_expires_at */

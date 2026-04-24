@@ -1,6 +1,7 @@
 // 玩法规则配置。改这里的常量不应影响业务代码结构。
 
-export const MAX_DAILY_TASKS = 2
+// v3.6: 2 → 5，玩家一天做满 5 个任务净续命 > 24h
+export const MAX_DAILY_TASKS = 5
 
 export const TASK_DEFAULT_EXPIRES_MS = 24 * 60 * 60 * 1000  // 24h
 

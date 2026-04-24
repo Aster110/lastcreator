@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import ShareActions from '@/components/ui/ShareActions'
 import TaskHistoryList from '@/components/ui/TaskHistoryList'
+import HeaderMenu, { type HeaderMenuItem } from '@/components/ui/HeaderMenu'
 import { COPY } from '@/lib/copy/hints'
 import type { ElementId, FullPet } from '@/types/pet'
 import type { DisplayTask } from '@/types/task'
@@ -68,7 +69,12 @@ export default function MePetDetailClient({ pet, canSummonNext }: Props) {
         <h1 className="text-white text-sm tracking-widest [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
           {pet.name}
         </h1>
-        <div className="w-10" />
+        <HeaderMenu
+          items={[
+            { label: COPY.menu.backHome, href: '/me' },
+            { label: COPY.menu.myHistory, href: '/me/history' },
+          ] as HeaderMenuItem[]}
+        />
       </div>
 
       <div className="relative flex-1 overflow-y-auto px-5 pb-10 space-y-5">

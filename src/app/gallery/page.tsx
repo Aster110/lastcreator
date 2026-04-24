@@ -36,7 +36,7 @@ export default async function GalleryPage() {
     >
       <div className="flex items-center justify-between px-5 pt-10 pb-4 shrink-0">
         <Link
-          href="/"
+          href="/me"
           className="w-10 h-10 flex items-center justify-center text-gray-500 text-xl"
         >
           ←

@@ -7,7 +7,7 @@ import TaskStage from '@/components/ui/TaskStage'
 import TaskHistoryList from '@/components/ui/TaskHistoryList'
 import ShareActions from '@/components/ui/ShareActions'
 import Countdown from '@/components/ui/Countdown'
-import ManageSheet from './ManageSheet'
+import HeaderMenu, { type HeaderMenuItem } from '@/components/ui/HeaderMenu'
 import { usePetTasks } from '@/hooks/usePetTasks'
 import { usePetActions } from '@/hooks/usePetActions'
 import { COPY } from '@/lib/copy/hints'
@@ -61,6 +61,18 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
   const birthDate = new Date(pet.createdAt)
   const birthDateStr = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
 
+  // v3.6: HeaderMenu items（取代旧的 ManageSheet + 右上"图鉴"链接）
+  const menuItems: HeaderMenuItem[] = [
+    { label: COPY.menu.myHistory, href: '/me/history' },
+    { label: COPY.menu.gallery, href: '/gallery' },
+    {
+      label: COPY.menu.release,
+      tone: 'danger',
+      confirmText: COPY.manage.releaseConfirm(pet.name),
+      onClick: handleRelease,
+    },
+  ]
+
   return (
     <div
       className="fixed inset-0 bg-gray-950 flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
@@ -77,12 +89,7 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
           ←
         </Link>
         <h1 className="text-white text-sm tracking-widest [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{pet.name}</h1>
-        <Link
-          href="/gallery"
-          className="text-white text-xs px-2 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
-        >
-          图鉴
-        </Link>
+        <HeaderMenu items={menuItems} />
       </div>
 
       <div className="relative flex-1 overflow-y-auto px-5 pb-24 space-y-5">
@@ -114,6 +121,9 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
             <p className="text-white text-xs tabular-nums">{birthDateStr}</p>
           </div>
         </div>
+
+        {/* v3.6: 分享 CTA 前置到 hero 附近 */}
+        <ShareActions petId={pet.id} petName={pet.name} story={pet.story} className="w-full" />
 
         {/* 任务入口卡 —— v3.5 hero 等级 */}
         <div>
@@ -183,17 +193,9 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
           <p className="text-white text-sm leading-relaxed">{pet.story}</p>
         </div>
 
-        {/* 分享 */}
-        <div className="pt-2 space-y-2">
-          <ShareActions petId={pet.id} petName={pet.name} story={pet.story} className="w-full" />
-        </div>
-
-        {/* 管理（放生藏二级确认） */}
-        <ManageSheet
-          petName={pet.name}
-          releasing={releasing}
-          onConfirmRelease={handleRelease}
-        />
+        {releasing && (
+          <p className="text-center text-white/50 text-xs pt-2">{COPY.manage.releaseRunning}</p>
+        )}
       </div>
 
       {/* 任务剧场 */}

@@ -28,6 +28,7 @@
 		"playwright": "^1.59.1",
 		"tailwindcss": "4.1.17",
 		"typescript": "5.9.3",
+		"vitest": "^4.1.5",
 		"wrangler": "4.56.0"
 	},
 	"private": true,
@@ -39,6 +40,7 @@
 		"dev": "next dev",
 		"lint": "next lint",
 		"preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-		"start": "next start"
+		"start": "next start",
+		"test": "vitest run"
 	}
 }

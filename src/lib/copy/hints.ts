@@ -82,4 +82,13 @@ export const COPY = {
     releaseRunning: '放生中……',
     closeLabel: '关闭',
   },
+  menu: {
+    myHistory: '📖 我的历史',
+    gallery: '🌍 全站图鉴',
+    share: '🔗 分享它',
+    release: '🕊️ 放生',
+    backHome: '🏠 回我的家',
+    historyPageTitle: '我的墓碑',
+    historyEmpty: '还没有走过的宠物',
+  },
 } as const
