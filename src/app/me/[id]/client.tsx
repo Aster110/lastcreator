@@ -9,7 +9,16 @@ import Countdown from '@/components/ui/Countdown'
 import { usePetTasks } from '@/hooks/usePetTasks'
 import { usePetActions } from '@/hooks/usePetActions'
 import { COPY } from '@/lib/copy/hints'
-import type { FullPet } from '@/types/pet'
+import type { ElementId, FullPet } from '@/types/pet'
+
+const ELEMENT_BG: Record<ElementId, string> = {
+  ruins: '/bg/ruins.jpg',
+  fire: '/bg/fire.jpg',
+  water: '/bg/water.jpg',
+  ice: '/bg/ice.jpg',
+  dark: '/bg/dark.jpg',
+  sky: '/bg/sky.jpg',
+}
 
 interface Props {
   pet: FullPet
@@ -37,11 +46,12 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
 
   const birthDate = new Date(pet.createdAt)
   const birthDateStr = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
+  const bgUrl = pet.element ? ELEMENT_BG[pet.element] : '/daily-bg.jpg'
 
   return (
     <div
       className="fixed inset-0 bg-gray-950 flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
-      style={{ backgroundImage: 'url(/daily-bg.jpg)' }}
+      style={{ backgroundImage: `url(${bgUrl})` }}
     >
       {/* 暗色遮罩：统一反差 */}
       <div className="absolute inset-0 bg-black/35 pointer-events-none" />
