@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/*
+ * 设计 tokens — 语义类名，Tailwind 4 的 @theme 会自动生成 bg-bg-base / text-text-primary 等。
+ * 组件使用规约见：mylife/2-Projects/P101-hackon/10-前端架构.md §5 D4
+ *
+ * 新增/换肤：改这里即可，不要散在组件里加颜色字面量。
+ */
+@theme {
+	--color-bg-base: oklch(0.145 0 0);         /* 页面底色，当前 = gray-950 */
+	--color-bg-raised: oklch(0.2 0 0);          /* 卡片/输入框，当前 ≈ gray-900 */
+	--color-bg-overlay: oklch(0.25 0 0);        /* 按钮/标签底，当前 ≈ gray-800 */
+
+	--color-text-primary: oklch(0.98 0 0);      /* 主文本 */
+	--color-text-secondary: oklch(0.82 0 0);    /* 次文本 */
+	--color-text-muted: oklch(0.55 0 0);        /* 弱文本 */
+	--color-text-subtle: oklch(0.4 0 0);        /* 更弱（占位/时间戳） */
+
+	--color-border-subtle: oklch(0.22 0 0);     /* 细边框 */
+
+	--color-accent-gold: oklch(0.78 0.15 85);   /* 金色点缀：稀有/主宠/记忆传承 */
+	--color-accent-warm: oklch(0.7 0.14 40);    /* 暖色：情绪正向 */
+	--color-accent-danger: oklch(0.6 0.22 25);  /* 危险/已安息 */
+	--color-accent-success: oklch(0.68 0.15 150); /* 成功/任务完成 */
+
+	--radius-card: 1rem;
+	--radius-pill: 9999px;
+}
+
+/* 保留原 light/dark body 变量（底层页面级 background 兜底） */
 :root {
 	--background: #ffffff;
 	--foreground: #171717;

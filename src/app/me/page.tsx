@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { readUser } from '@/lib/identity'
 import { listFullPetsByOwner } from '@/lib/repo/petState'
 import { computeWorld } from '@/lib/game/world'
-import GalleryGrid from '@/components/GalleryGrid'
+import GalleryGrid from '@/components/ui/GalleryGrid'
 import type { DisplayPet, FullPet } from '@/types/pet'
 
 export const dynamic = 'force-dynamic'

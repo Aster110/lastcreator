@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
-import HomeScreen from '@/components/HomeScreen'
-import DrawingCanvas from '@/components/DrawingCanvas'
-import LoadingScreen from '@/components/LoadingScreen'
-import PetCard from '@/components/PetCard'
+import HomeScreen from '@/features/home-new/NewHomeScreen'
+import DrawingCanvas from '@/features/draw/DrawingCanvas'
+import LoadingScreen from '@/features/draw/LoadingScreen'
+import PetCard from '@/components/ui/PetCard'
 import type { DisplayPet } from '@/types/pet'
 
 type Phase = 'home' | 'drawing' | 'loading' | 'result'

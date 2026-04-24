@@ -1,0 +1,62 @@
+import type { PetStage, PetStatus } from './pet'
+import type { TaskKind, Reward, TaskStatus, TaskVerdict } from './task'
+
+/**
+ * PetView — UI 层专用视图模型
+ *
+ * 前端组件只认这个类型，不再吃 FullPet / DisplayPet / Pet。
+ * 加字段只改 adapter（`lib/view/petView.ts`），组件不动。
+ */
+export interface PetView {
+  id: string
+  name: string
+  habitat: string
+  personality: string
+  skills: string[]
+  stage: PetStage
+  hp: number
+  exp: number
+  status: PetStatus
+  imageUrl: string | null
+  story: string
+  mood?: string | null
+
+  /** 末日第 N 天诞生 */
+  birthDay: number
+  /** 陪伴了 N 天（<24h 为 0） */
+  ageDays: number
+  /** YYYY-MM-DD */
+  birthDateStr: string
+
+  /** 是否当前用户拥有 */
+  isOwner: boolean
+
+  /** 徽章（稀有/主宠/已放生/死亡 等） */
+  badges: PillDesc[]
+
+  /** 原始涂鸦 R2 key，仅 owner 可见 */
+  doodleR2Key?: string | null
+  /** 继承自哪只宠物（记忆链） */
+  memoryFromPetId?: string | null
+}
+
+export interface PillDesc {
+  tone: 'neutral' | 'gold' | 'warm' | 'danger' | 'success'
+  label: string
+}
+
+/**
+ * TaskView — 任务的 UI 视图
+ */
+export interface TaskView {
+  id: string
+  kind: TaskKind
+  prompt: string
+  reward: Reward
+  rewardText: string           // "HP +10 · EXP +5"
+  status: TaskStatus
+  verdict: TaskVerdict | null
+  /** 活跃？ = pending 或 submitted */
+  isActive: boolean
+  expiresAt: number
+}

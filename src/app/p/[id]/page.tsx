@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import { getFullPet } from '@/lib/repo/petState'
 import { computePetBirthDay, computePetAgeDays } from '@/lib/game/world'
 import { countDoneTasksForPet } from '@/lib/repo/tasks'
-import ShareActions from '@/components/ShareActions'
+import ShareActions from '@/components/ui/ShareActions'
 
 export const dynamic = 'force-dynamic'
 

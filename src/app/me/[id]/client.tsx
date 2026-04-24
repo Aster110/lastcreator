@@ -1,58 +1,31 @@
 'use client'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import TaskPanel from '@/components/TaskPanel'
-import ShareActions from '@/components/ShareActions'
+import { useState } from 'react'
+import TaskPanel from '@/components/ui/TaskPanel'
+import ShareActions from '@/components/ui/ShareActions'
+import { usePetTasks } from '@/hooks/usePetTasks'
+import { usePetActions } from '@/hooks/usePetActions'
 import type { FullPet } from '@/types/pet'
-import type { DisplayTask } from '@/types/task'
 
 interface Props {
   pet: FullPet
 }
 
-interface TasksPayload {
-  active: DisplayTask | null
-  dailyDone: number
-  dailyMax: number
-}
-
 export default function MePetDetailClient({ pet: initialPet }: Props) {
   const [pet, setPet] = useState(initialPet)
-  const [tasks, setTasks] = useState<TasksPayload | null>(null)
-  const [releasing, setReleasing] = useState(false)
-
-  useEffect(() => {
-    if (pet.status !== 'alive') return
-    fetch(`/api/pets/${pet.id}/tasks`)
-      .then(r => r.json() as Promise<TasksPayload>)
-      .then(setTasks)
-      .catch(() => {})
-  }, [pet.id, pet.status])
+  const { data: tasks, loading, refresh } = usePetTasks(pet.id, pet.status === 'alive')
+  const { release, releasing } = usePetActions(pet.id)
 
   const handleCompleted = (state: { hp: number; exp: number }) => {
     setPet(p => ({ ...p, hp: state.hp, exp: state.exp }))
-    // 重取任务（下一个任务可能已派）
-    fetch(`/api/pets/${pet.id}/tasks`)
-      .then(r => r.json() as Promise<TasksPayload>)
-      .then(setTasks)
-      .catch(() => {})
+    void refresh()
   }
 
   const handleRelease = async () => {
     if (!confirm(`确认要放生 ${pet.name} 吗？放生后不能召回。`)) return
-    setReleasing(true)
-    try {
-      const res = await fetch(`/api/pets/${pet.id}/release`, { method: 'POST' })
-      if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string }
-        alert(`放生失败：${j.error ?? res.status}`)
-        return
-      }
-      const data = (await res.json()) as { state: { status: FullPet['status'] } }
-      setPet(p => ({ ...p, status: data.state.status }))
-      setTasks(null)
-    } finally {
-      setReleasing(false)
+    const newStatus = await release()
+    if (newStatus) {
+      setPet(p => ({ ...p, status: newStatus }))
     }
   }
 
@@ -104,7 +77,7 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
         {pet.status === 'alive' ? (
           <div>
             <p className="text-gray-600 text-xs mb-2">当前任务</p>
-            {tasks === null ? (
+            {loading || !tasks ? (
               <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-4 text-gray-600 text-xs">
                 加载中...
               </div>

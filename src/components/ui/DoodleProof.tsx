@@ -1,5 +1,5 @@
 'use client'
-import DrawingCanvas from './DrawingCanvas'
+import DrawingCanvas from '@/features/draw/DrawingCanvas'
 
 interface Props {
   onSubmit: (dataUrl: string) => void

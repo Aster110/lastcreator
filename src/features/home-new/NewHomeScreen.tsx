@@ -11,7 +11,7 @@ interface WorldState {
   petCount: number
 }
 
-export default function HomeScreen({ onStart }: Props) {
+export default function NewHomeScreen({ onStart }: Props) {
   const [world, setWorld] = useState<WorldState | null>(null)
 
   useEffect(() => {
