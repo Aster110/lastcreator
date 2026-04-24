@@ -8,6 +8,9 @@ const POLL_INTERVAL_MS = 5_000
 const POLL_TIMEOUT_MS = 50_000
 // submit 429 退避：瞬时限流多数 2-5s 能恢复
 const SUBMIT_RETRY_DELAYS_MS = [1_000, 3_000, 7_000]
+// zzz 账号级上限 10 并发，我们留 4 个 buffer：≥6 活跃就直接拒新请求
+// 避免用户 submit 后失败 + 任务残留继续占队列槽，雪球到 10 个堵死
+const QUEUE_GATE_THRESHOLD = 6
 
 function token(): string {
   const t = process.env.ZZZ_ACCESS_TOKEN
@@ -104,15 +107,49 @@ async function cleanupLibrary(libraryId: string): Promise<void> {
   }).catch(() => {})
 }
 
+/** 取消 zzz 任务，释放账户队列槽。任何错误静默（task 可能已 completed/cancelled） */
+async function cancelTask(taskId: string): Promise<void> {
+  await fetch(`${BASE}/api/tasks/${taskId}/cancel`, {
+    method: 'POST',
+    headers: authHeaders(),
+  }).catch(() => {})
+}
+
+/** 查询当前账户活跃任务数（pending/processing/running/queued）。失败返回 null，调用方按"不阻断"处理 */
+async function getActiveTaskCount(): Promise<number | null> {
+  try {
+    const res = await fetch(`${BASE}/api/tasks?limit=20`, { headers: authHeaders() })
+    if (!res.ok) return null
+    const data = (await res.json()) as { tasks?: Array<{ status?: string; can_cancel?: boolean }> }
+    const active = (data.tasks ?? []).filter(t => {
+      const s = (t.status ?? '').toLowerCase()
+      return s === 'pending' || s === 'processing' || s === 'running' || s === 'queued'
+    })
+    return active.length
+  } catch {
+    return null
+  }
+}
+
 export const zzzStudioProvider: ImageProvider = {
   async generateFromDoodle(doodleDataUrl, stylePrompt) {
+    // 门禁：zzz 账户级队列接近上限就早拒，省 upload + submit 浪费，也防继续堆积
+    const active = await getActiveTaskCount()
+    if (active !== null && active >= QUEUE_GATE_THRESHOLD) {
+      console.warn(`[zzz] queue gate rejected: ${active}/${QUEUE_GATE_THRESHOLD} active`)
+      throw new Error(`zzz queue full: ${active}/${QUEUE_GATE_THRESHOLD}`)
+    }
+
     const { libraryId, personId } = await uploadDoodle(doodleDataUrl)
+    let taskId: string | null = null
     try {
-      const taskId = await submitGenerate(stylePrompt, libraryId, personId)
+      taskId = await submitGenerate(stylePrompt, libraryId, personId)
       await pollUntilDone(taskId)
       const imageUrl = await getResultUrl(taskId)
-      return { imageUrl, taskRef: libraryId }  // taskRef 设为 libraryId 方便清理
+      return { imageUrl, taskRef: libraryId }
     } catch (err) {
+      // 失败路径双清理：cancel task 释放队列槽 + 删 library，防僵尸任务堆积到 10 并发上限
+      if (taskId) cancelTask(taskId).catch(() => {})
       cleanupLibrary(libraryId).catch(() => {})
       throw err
     }

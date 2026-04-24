@@ -110,8 +110,8 @@ export async function POST(req: NextRequest) {
     console.error('[/api/generate] error:', err)
     if (taskRef && ctx) ctx.waitUntil(zzzStudioCleanup(taskRef))
     const msg = err instanceof Error ? err.message : String(err)
-    // 429 = 上游图生图限流（zzz 'zzz generate failed: 429'），UX 上单独走"世界拒绝"分支
-    const isRateLimit = /\b429\b/.test(msg)
+    // 429 = 上游图生图限流；queue full = 我方门禁早拒。两者 UX 都走"世界拒绝"
+    const isRateLimit = /\b429\b/.test(msg) || /queue full/.test(msg)
     const debugInfo = process.env.NODE_ENV !== 'production' ? { error: msg } : {}
     return NextResponse.json({
       pet: { ...FALLBACK, id: petId },
