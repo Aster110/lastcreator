@@ -34,6 +34,7 @@ const FALLBACK: DisplayPet = {
 export default function DrawFlow({ open, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('drawing')
   const [pet, setPet] = useState<DisplayPet | null>(null)
+  const [genFailed, setGenFailed] = useState(false)
   const router = useRouter()
 
   // 预取 /me 让 welcome 跳转瞬时
@@ -101,20 +102,36 @@ export default function DrawFlow({ open, onClose }: Props) {
           body: JSON.stringify({ imageDataUrl: dataUrl }),
         })
         const data = (await res.json()) as { pet: DisplayPet; fallback?: boolean }
-        console.log('[DrawFlow] /api/generate ok, pet.id =', data.pet?.id)
+        console.log('[DrawFlow] /api/generate resp, pet.id =', data.pet?.id, 'fallback =', data.fallback)
+        if (data.fallback) {
+          // 服务端生成失败（返回 fallback 假 pet，没落 DB）→ 不走 welcome 流程，显式提示失败
+          setGenFailed(true)
+          return
+        }
         setPet(data.pet)
       } catch (err) {
         console.error('[generate] network error:', err)
-        setPet(FALLBACK)
+        setGenFailed(true)
       }
     })()
     setPhase('video1')
+  }
+
+  const handleRetry = () => {
+    setGenFailed(false)
+    setPet(null)
+    setPhase('drawing')
   }
 
   const handleVideo2End = () => {
     console.log('[DrawFlow] video2 onEnded fired, pet =', pet?.id ?? 'null')
     if (pet) goWelcome()
     else setPhase('loading')
+  }
+
+  // 生成失败优先级最高：立刻跳出视频流程，显式错误 + 重试
+  if (genFailed) {
+    return <GenFailedScreen onRetry={handleRetry} onBack={onClose} />
   }
 
   if (phase === 'drawing') {
@@ -201,6 +218,38 @@ function WaitingForPet({ posterSrc }: { posterSrc: string }) {
                       px-5 py-3 rounded-full bg-black/60 backdrop-blur-sm text-stone-100 text-sm">
         <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
         <span>正在生成...</span>
+      </div>
+    </div>
+  )
+}
+
+function GenFailedScreen({
+  onRetry,
+  onBack,
+}: {
+  onRetry: () => void
+  onBack: () => void
+}) {
+  return (
+    <div className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-center gap-6 px-8">
+      <div className="text-5xl">💢</div>
+      <div className="text-center space-y-2">
+        <p className="text-white text-lg font-semibold">召唤失败</p>
+        <p className="text-gray-400 text-sm">AI 暂时没能听懂这只宠物。<br />请再画一次试试。</p>
+      </div>
+      <div className="flex flex-col gap-3 w-full max-w-xs mt-4">
+        <button
+          onClick={onRetry}
+          className="w-full h-12 rounded-full bg-white text-gray-900 font-semibold active:scale-95 transition-transform"
+        >
+          重新画
+        </button>
+        <button
+          onClick={onBack}
+          className="w-full h-12 rounded-full bg-gray-900 border border-gray-800 text-gray-400 text-sm active:scale-95 transition-transform"
+        >
+          返回档案
+        </button>
       </div>
     </div>
   )
