@@ -5,9 +5,13 @@ import { useCanvas } from '@/hooks/useCanvas'
 interface Props {
   onConfirm: (dataUrl: string) => void
   onCancel: () => void
+  /** 顶部提示文案，默认 "用手指画出你的宠物"（召唤场景）。任务场景可传 "画：{task.prompt}" */
+  hint?: string
+  /** 占位提示，默认 "✦ 在此处涂鸦" */
+  placeholder?: string
 }
 
-export default function DrawingCanvas({ onConfirm, onCancel }: Props) {
+export default function DrawingCanvas({ onConfirm, onCancel, hint, placeholder }: Props) {
   const { canvasRef, clear, getDataUrl, hasDrawn } = useCanvas({
     strokeColor: '#e2e8f0',
     lineWidth: 5,
@@ -42,7 +46,7 @@ export default function DrawingCanvas({ onConfirm, onCancel }: Props) {
         >
           ←
         </button>
-        <p className="text-gray-500 text-sm">用手指画出你的宠物</p>
+        <p className="text-gray-500 text-sm">{hint ?? '用手指画出你的宠物'}</p>
         <div className="w-10" />
       </div>
 
@@ -63,7 +67,7 @@ export default function DrawingCanvas({ onConfirm, onCancel }: Props) {
         />
         {/* 占位提示（未画时显示） */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="text-gray-700 text-xs">✦ 在此处涂鸦</p>
+          <p className="text-gray-700 text-xs">{placeholder ?? '✦ 在此处涂鸦'}</p>
         </div>
       </div>
 

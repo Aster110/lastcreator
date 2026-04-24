@@ -1,5 +1,6 @@
 'use client'
-import { useCountdown } from '@/hooks/useCountdown'
+import { useEffect, useRef } from 'react'
+import { useCountdown, type CountdownPhase } from '@/hooks/useCountdown'
 import type { PetStatus } from '@/types/pet'
 
 interface Props {
@@ -9,14 +10,36 @@ interface Props {
   staticLabel?: string
   /** 样式变体：'hero' 大号、'card' 小号、'inline' 极简 */
   variant?: 'hero' | 'card' | 'inline'
+  /** 倒计时到 0 的一瞬（仅 status==='alive' 有效），由父组件触发刷新用 */
+  onExpire?: () => void
   className?: string
 }
 
 /**
- * 宠物生命倒计时组件。alive → 实时 tick；非 alive → 静态文本。
+ * 宠物生命倒计时组件。alive → 实时 tick + 分阶段变色；非 alive → 静态文本。
+ *
+ * 阈值（阶段 → 颜色）：
+ * safe >30m → 白；warn 10-30m → 琥珀；danger 2-10m → 红；
+ * critical <2m → 红+脉动；dead → 灰
  */
-export default function Countdown({ expiresAt, status, staticLabel, variant = 'card', className = '' }: Props) {
-  const { remainingMs, label } = useCountdown(status === 'alive' ? expiresAt : null)
+export default function Countdown({
+  expiresAt,
+  status,
+  staticLabel,
+  variant = 'card',
+  onExpire,
+  className = '',
+}: Props) {
+  const { label, phase } = useCountdown(status === 'alive' ? expiresAt : null)
+
+  // phase 切到 dead 的瞬间触发 onExpire（只触发一次，由父组件拉 refresh）
+  const prevPhaseRef = useRef<CountdownPhase | null>(null)
+  useEffect(() => {
+    if (prevPhaseRef.current !== 'dead' && phase === 'dead' && status === 'alive') {
+      onExpire?.()
+    }
+    prevPhaseRef.current = phase
+  }, [phase, status, onExpire])
 
   if (status !== 'alive') {
     return <span className={baseClass(variant, 'static') + ' ' + className}>{staticLabel ?? ''}</span>
@@ -26,26 +49,26 @@ export default function Countdown({ expiresAt, status, staticLabel, variant = 'c
     return <span className={baseClass(variant, 'static') + ' ' + className}>寿命未知</span>
   }
 
-  const dying = remainingMs > 0 && remainingMs < 10 * 60_000   // < 10 min
-  const dead = remainingMs <= 0
-
-  const tone = dead ? 'dead' : dying ? 'warn' : 'ok'
   return (
-    <span className={baseClass(variant, tone) + ' ' + className} suppressHydrationWarning>
-      {dead ? '🕯️ 安息中...' : label}
+    <span className={baseClass(variant, phase) + ' ' + className} suppressHydrationWarning>
+      {phase === 'dead' ? '🕯️ 安息中...' : label}
     </span>
   )
 }
 
-function baseClass(variant: Props['variant'], tone: 'ok' | 'warn' | 'dead' | 'static'): string {
+function baseClass(variant: Props['variant'], phase: CountdownPhase | 'static'): string {
   const size =
     variant === 'hero' ? 'text-2xl font-bold tabular-nums'
     : variant === 'inline' ? 'text-[10px] tabular-nums'
     : 'text-sm tabular-nums'
+
   const color =
-    tone === 'dead' ? 'text-gray-500'
-    : tone === 'warn' ? 'text-red-400'
-    : tone === 'static' ? 'text-gray-500'
+    phase === 'static' ? 'text-gray-500'
+    : phase === 'dead' ? 'text-gray-500'
+    : phase === 'critical' ? 'text-red-500 animate-pulse'
+    : phase === 'danger' ? 'text-red-400'
+    : phase === 'warn' ? 'text-amber-400'
     : 'text-white'
+
   return `${size} ${color}`
 }

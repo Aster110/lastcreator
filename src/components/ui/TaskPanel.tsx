@@ -3,7 +3,9 @@ import { useState } from 'react'
 import PhotoProof from './PhotoProof'
 import DoodleProof from './DoodleProof'
 import StagedLoading from './StagedLoading'
-import type { DisplayTask, Reward } from '@/types/task'
+import { result, haptic } from '@/lib/ui/feedback'
+import { COPY } from '@/lib/copy/hints'
+import type { DisplayTask, Reward, TaskVerdict } from '@/types/task'
 
 interface Props {
   petId: string
@@ -21,12 +23,11 @@ export default function TaskPanel({ petId, task, dailyDone, dailyMax, onComplete
   if (!task) {
     return (
       <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-4">
-        <p className="text-gray-400 text-sm">
-          今日已完成 {dailyDone}/{dailyMax} 个任务
-        </p>
+        <p className="text-gray-400 text-sm">{COPY.task.emptyToday(dailyDone, dailyMax)}</p>
         <p className="text-gray-600 text-xs mt-1">
-          {dailyDone >= dailyMax ? '休息一下，明天继续' : '暂无任务'}
+          {dailyDone >= dailyMax ? COPY.task.resting : COPY.task.noneYet}
         </p>
+        <p className="text-gray-700 text-[10px] mt-2">{COPY.pet.lifeRefillHint}</p>
       </div>
     )
   }
@@ -42,24 +43,42 @@ export default function TaskPanel({ petId, task, dailyDone, dailyMax, onComplete
       })
       const data = (await res.json()) as {
         task?: DisplayTask
-        verdict?: { pass: boolean; reason: string }
+        verdict?: TaskVerdict
         state?: { hp: number; exp: number }
+        effectiveReward?: Reward
+        lifeExtendedMs?: number
       }
       if (data.verdict) {
         setOutcome({ pass: data.verdict.pass, reason: data.verdict.reason })
       }
       if (data.verdict?.pass && data.state) {
+        const minutes = Math.round((data.lifeExtendedMs ?? 0) / 60_000)
+        const exp = data.effectiveReward?.exp
+        result('pass', COPY.task.passMsg, { minutes, exp })
         onCompleted({ hp: data.state.hp, exp: data.state.exp })
+      } else if (data.verdict) {
+        haptic('warn')
       }
     } catch (err) {
       console.error('submit failed', err)
       setOutcome({ pass: false, reason: '提交失败，请重试' })
+      haptic('error')
     }
     setSubmitting(false)
   }
 
-  if (proofMode === 'photo') return <PhotoProof onSubmit={handleSubmit} onCancel={() => setProofMode(null)} />
-  if (proofMode === 'doodle') return <DoodleProof onSubmit={handleSubmit} onCancel={() => setProofMode(null)} />
+  if (proofMode === 'photo') {
+    return <PhotoProof onSubmit={handleSubmit} onCancel={() => setProofMode(null)} />
+  }
+  if (proofMode === 'doodle') {
+    return (
+      <DoodleProof
+        onSubmit={handleSubmit}
+        onCancel={() => setProofMode(null)}
+        hint={COPY.task.doodleHint(task.prompt)}
+      />
+    )
+  }
 
   return (
     <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-4">
@@ -73,6 +92,7 @@ export default function TaskPanel({ petId, task, dailyDone, dailyMax, onComplete
           <p className="text-gray-600 text-xs mt-2">
             奖励：{rewardText(task.reward)}
           </p>
+          <p className="text-gray-700 text-[10px] mt-1">{COPY.task.rewardNote}</p>
         </div>
       </div>
 
@@ -88,15 +108,15 @@ export default function TaskPanel({ petId, task, dailyDone, dailyMax, onComplete
         </div>
       )}
 
-      {/* CTA / 提交期过场动画 */}
+      {/* CTA / 提交期过场 */}
       {task.status === 'pending' && !outcome && (
         submitting ? (
           <StagedLoading
             active={submitting}
             stages={[
-              { at: 0, content: `🔍 AI 正在端详你的${task.kind === 'photo' ? '照片' : '涂鸦'}...` },
-              { at: 5000, content: '🔎 AI 正在仔细观察细节...' },
-              { at: 15000, content: '🤔 AI 在琢磨中，再等一会...' },
+              { at: 0, content: COPY.task.waitingInitial(task.kind) },
+              { at: 5000, content: COPY.task.waitingMid },
+              { at: 15000, content: COPY.task.waitingLong },
             ]}
             className="mt-4 text-center text-gray-400 text-sm py-3"
           />
@@ -106,7 +126,7 @@ export default function TaskPanel({ petId, task, dailyDone, dailyMax, onComplete
               onClick={() => setProofMode(task.kind)}
               className="flex-1 h-11 rounded-full bg-white text-gray-900 text-sm font-semibold active:scale-95 transition-transform"
             >
-              {task.kind === 'photo' ? '去拍照' : '去涂鸦'}
+              {task.kind === 'photo' ? COPY.task.photoCTA : COPY.task.doodleCTA}
             </button>
           </div>
         )

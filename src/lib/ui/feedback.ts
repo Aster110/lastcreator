@@ -37,6 +37,28 @@ const TOAST_COLORS: Record<ToastKind, string> = {
   error: 'rgba(127,29,29,0.92)',
 }
 
+export interface ResultReward {
+  minutes?: number
+  exp?: number
+}
+
+/**
+ * 操作结果联动反馈：toast + haptic 一次调用。
+ * 用于 pass/fail/timeout 统一通道，避免散落的 toast+haptic 手动组合。
+ */
+export function result(kind: 'pass' | 'fail' | 'timeout', msg: string, reward?: ResultReward): void {
+  const text = reward ? `${msg}${formatReward(reward) ? ' · ' + formatReward(reward) : ''}` : msg
+  toast(text, kind === 'pass' ? 'success' : kind === 'timeout' ? 'warn' : 'error')
+  haptic(kind === 'pass' ? 'success' : kind === 'timeout' ? 'warn' : 'error')
+}
+
+function formatReward(r: ResultReward): string {
+  const parts: string[] = []
+  if (r.minutes && r.minutes > 0) parts.push(`续命 +${r.minutes}min`)
+  if (r.exp && r.exp > 0) parts.push(`EXP +${r.exp}`)
+  return parts.join(' · ')
+}
+
 export function toast(message: string, kind: ToastKind = 'info'): void {
   if (typeof window === 'undefined') return
   if (typeof document === 'undefined') return

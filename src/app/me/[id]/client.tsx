@@ -1,12 +1,14 @@
 'use client'
 import Link from 'next/link'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import TaskPanel from '@/components/ui/TaskPanel'
 import ShareActions from '@/components/ui/ShareActions'
 import TaskHistoryList from '@/components/ui/TaskHistoryList'
 import Countdown from '@/components/ui/Countdown'
 import { usePetTasks } from '@/hooks/usePetTasks'
 import { usePetActions } from '@/hooks/usePetActions'
+import { COPY } from '@/lib/copy/hints'
 import type { FullPet } from '@/types/pet'
 
 interface Props {
@@ -15,6 +17,7 @@ interface Props {
 
 export default function MePetDetailClient({ pet: initialPet }: Props) {
   const [pet, setPet] = useState(initialPet)
+  const router = useRouter()
   const { data: tasks, loading, refresh } = usePetTasks(pet.id, pet.status === 'alive')
   const { release, releasing } = usePetActions(pet.id)
 
@@ -60,13 +63,17 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
         {/* 倒计时 + 出生时间 */}
         <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-3 flex items-center justify-between">
           <div>
-            <p className="text-gray-600 text-[10px] tracking-widest uppercase mb-0.5">剩余生命</p>
+            <p className="text-gray-600 text-[10px] tracking-widest uppercase mb-0.5">{COPY.pet.lifeRemainingLabel}</p>
             <Countdown
               expiresAt={pet.lifeExpiresAt}
               status={pet.status}
               variant="hero"
-              staticLabel={pet.status === 'released' ? '🕊️ 已放生' : pet.status === 'dead' ? '🕯️ 已安息' : ''}
+              onExpire={() => router.refresh()}
+              staticLabel={pet.status === 'released' ? COPY.pet.released : pet.status === 'dead' ? COPY.pet.deceased : ''}
             />
+            {pet.status === 'alive' && (
+              <p className="text-gray-700 text-[10px] mt-1">{COPY.pet.lifeRefillHint}</p>
+            )}
           </div>
           <div className="text-right">
             <p className="text-gray-600 text-[10px] tracking-widest uppercase mb-0.5">诞生于</p>

@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import DrawFlow from '@/features/draw/DrawFlow'
 import TaskPanel from '@/components/ui/TaskPanel'
 import HomePetHeader from './HomePetHeader'
@@ -24,6 +25,7 @@ interface Props {
 export default function HomePetScreen({ pet: initialPet, world, currentUserId, completedCount }: Props) {
   const [pet, setPet] = useState(initialPet)
   const [drawing, setDrawing] = useState(false)
+  const router = useRouter()
   const { data: tasks, loading, refresh } = usePetTasks(pet.id, pet.status === 'alive')
 
   if (drawing) {
@@ -42,7 +44,7 @@ export default function HomePetScreen({ pet: initialPet, world, currentUserId, c
       <HomePetHeader world={world} />
 
       <div className="flex-1 overflow-y-auto mt-6 space-y-6">
-        <HomePetHero pet={view} />
+        <HomePetHero pet={view} onExpire={() => router.refresh()} />
 
         {/* 任务 */}
         <div>

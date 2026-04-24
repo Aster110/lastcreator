@@ -1,12 +1,15 @@
 'use client'
 import Countdown from '@/components/ui/Countdown'
+import { COPY } from '@/lib/copy/hints'
 import type { PetView } from '@/types/view'
 
 interface Props {
   pet: PetView
+  /** 倒计时到 0 时触发（一般用于 refresh） */
+  onExpire?: () => void
 }
 
-export default function HomePetHero({ pet }: Props) {
+export default function HomePetHero({ pet, onExpire }: Props) {
   return (
     <div className="flex flex-col items-center gap-4 anim-fade">
       {/* 宠物大图 */}
@@ -42,12 +45,16 @@ export default function HomePetHero({ pet }: Props) {
 
       {/* 生命倒计时大号展示 */}
       <div className="flex flex-col items-center gap-1">
-        <p className="text-gray-600 text-[10px] tracking-widest uppercase">剩余生命</p>
+        <p className="text-gray-600 text-[10px] tracking-widest uppercase">{COPY.pet.lifeRemainingLabel}</p>
         <Countdown
           expiresAt={pet.lifeExpiresAt}
           status={pet.status}
           variant="hero"
+          onExpire={onExpire}
         />
+        {pet.status === 'alive' && (
+          <p className="text-gray-700 text-[10px] mt-1">{COPY.pet.lifeRefillHint}</p>
+        )}
       </div>
 
       {/* 阶段 + 已完成任务 */}
