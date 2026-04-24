@@ -82,10 +82,10 @@ export default async function MePage({ searchParams }: PageProps) {
         <GalleryGrid pets={display} />
       </div>
 
-      <div className="absolute bottom-0 inset-x-0 px-5 pb-8 pt-6 bg-gradient-to-t from-black/60 via-black/30 to-transparent">
+      <div className="absolute bottom-0 inset-x-0 px-5 pb-8 pt-6 bg-gradient-to-t from-black/60 via-black/30 to-transparent pointer-events-none">
         <Link
           href="/draw"
-          className="flex items-center justify-center w-full h-14 rounded-full bg-white text-gray-900 font-semibold text-base active:scale-95 transition-transform"
+          className="flex items-center justify-center w-full h-14 rounded-full bg-white text-gray-900 font-semibold text-base active:scale-95 transition-transform pointer-events-auto"
         >
           + 召唤新生命
         </Link>
