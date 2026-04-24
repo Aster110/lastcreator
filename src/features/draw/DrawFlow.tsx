@@ -56,13 +56,38 @@ export default function DrawFlow({ open, onClose }: Props) {
     return () => { links.forEach(l => l.remove()) }
   }, [open])
 
+  // 统一跳转：硬 nav 兜底 router 假死
+  const goWelcome = () => {
+    console.log('[DrawFlow] → /me?welcome=1')
+    router.replace('/me?welcome=1')
+    // 300ms 后若还没真的导航走，硬 replace
+    setTimeout(() => {
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/draw')) {
+        window.location.replace('/me?welcome=1')
+      }
+    }, 300)
+  }
+
   // 等待态自动推进：
   // - waitingForPet + pet 到手 → 进 video2
   // - loading + pet 到手 → 直接跳 welcome 页
   useEffect(() => {
     if (phase === 'waitingForPet' && pet) setPhase('video2')
-    if (phase === 'loading' && pet) router.replace('/me?welcome=1')
-  }, [phase, pet, router])
+    if (phase === 'loading' && pet) goWelcome()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, pet])
+
+  // video2 兜底：视频超时 15s 还没 onEnded，强制跳转（防 iOS/解码异常卡死）
+  useEffect(() => {
+    if (phase !== 'video2') return
+    const timer = setTimeout(() => {
+      console.warn('[DrawFlow] video2 timeout, force navigate')
+      if (pet) goWelcome()
+      else setPhase('loading')
+    }, 15000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
 
   if (!open) return null
 
@@ -76,6 +101,7 @@ export default function DrawFlow({ open, onClose }: Props) {
           body: JSON.stringify({ imageDataUrl: dataUrl }),
         })
         const data = (await res.json()) as { pet: DisplayPet; fallback?: boolean }
+        console.log('[DrawFlow] /api/generate ok, pet.id =', data.pet?.id)
         setPet(data.pet)
       } catch (err) {
         console.error('[generate] network error:', err)
@@ -86,7 +112,8 @@ export default function DrawFlow({ open, onClose }: Props) {
   }
 
   const handleVideo2End = () => {
-    if (pet) router.replace('/me?welcome=1')
+    console.log('[DrawFlow] video2 onEnded fired, pet =', pet?.id ?? 'null')
+    if (pet) goWelcome()
     else setPhase('loading')
   }
 
