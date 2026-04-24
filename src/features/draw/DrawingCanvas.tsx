@@ -81,23 +81,26 @@ export default function DrawingCanvas({ onConfirm, onCancel, hint, placeholder }
         {/* 清除 */}
         <button
           onClick={clear}
+          aria-label="清除"
           className="w-14 h-14 rounded-full bg-black/50 backdrop-blur-sm border border-stone-200/20
-                     flex items-center justify-center text-stone-200 text-sm
+                     overflow-hidden
                      active:scale-95 transition-transform"
         >
-          清除
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/buttons/reset.jpg" alt="" className="w-full h-full object-cover" />
         </button>
 
         {/* 召唤确认 */}
         <button
           onClick={handleConfirm}
-          className="w-20 h-20 rounded-full bg-stone-50 flex items-center justify-center
-                     text-stone-900 text-3xl font-bold
+          aria-label="确认"
+          className="w-20 h-20 rounded-full bg-stone-50 overflow-hidden
                      shadow-[0_0_30px_rgba(255,230,180,0.5)]
                      ring-2 ring-amber-200/40
                      active:scale-95 transition-transform"
         >
-          ✓
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/buttons/yes.jpg" alt="" className="w-full h-full object-cover" />
         </button>
       </div>
     </div>

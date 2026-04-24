@@ -5,7 +5,7 @@ import LoadingScreen from './LoadingScreen'
 import PetCard from '@/components/ui/PetCard'
 import type { DisplayPet } from '@/types/pet'
 
-type Phase = 'drawing' | 'video1' | 'waitConfirm' | 'video2' | 'loading' | 'result'
+type Phase = 'drawing' | 'video1' | 'waitConfirm' | 'waitingForPet' | 'video2' | 'loading' | 'result'
 
 interface Props {
   /** 开关（父组件控制是否展示整个流程） */
@@ -49,8 +49,9 @@ export default function DrawFlow({ open, onClose }: Props) {
     return () => { links.forEach(l => l.remove()) }
   }, [open])
 
-  // video2 结束/出错时 pet 若还没回，进 loading；pet 到位后自动切 result
+  // 等待态自动推进：pet 到位后，waitingForPet → video2；video2 结束但 pet 未到 → loading → result
   useEffect(() => {
+    if (phase === 'waitingForPet' && pet) setPhase('video2')
     if (phase === 'loading' && pet) setPhase('result')
   }, [phase, pet])
 
@@ -91,7 +92,15 @@ export default function DrawFlow({ open, onClose }: Props) {
     return <FullscreenVideo src="/intro-1.mp4" onEnded={() => setPhase('waitConfirm')} />
   }
   if (phase === 'waitConfirm') {
-    return <WaitConfirm posterSrc="/intro-1-last.jpg" onConfirm={() => setPhase('video2')} />
+    return (
+      <WaitConfirm
+        posterSrc="/intro-1-last.jpg"
+        onConfirm={() => setPhase(pet ? 'video2' : 'waitingForPet')}
+      />
+    )
+  }
+  if (phase === 'waitingForPet') {
+    return <WaitingForPet posterSrc="/intro-1-last.jpg" />
   }
   if (phase === 'video2') {
     // intro-2.mp4 未提供时，video 触发 error → 直接 fallback
@@ -150,6 +159,24 @@ function FullscreenVideo({
   )
 }
 
+function WaitingForPet({ posterSrc }: { posterSrc: string }) {
+  return (
+    <div className="fixed inset-0 bg-black">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={posterSrc}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-3
+                      px-5 py-3 rounded-full bg-black/60 backdrop-blur-sm text-stone-100 text-sm">
+        <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+        <span>正在生成...</span>
+      </div>
+    </div>
+  )
+}
+
 function WaitConfirm({
   posterSrc,
   onConfirm,
@@ -164,16 +191,17 @@ function WaitConfirm({
         alt=""
         className="absolute inset-0 w-full h-full object-cover"
       />
-      {/* 未来 aster 会用图片替代文字按钮 */}
       <button
         onClick={onConfirm}
-        className="absolute bottom-24 left-1/2 -translate-x-1/2 px-12 py-4 rounded-full
-                   bg-white/95 text-stone-900 text-lg font-semibold
+        aria-label="确定"
+        className="absolute bottom-24 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full
+                   bg-white/95 overflow-hidden
                    shadow-[0_0_30px_rgba(255,255,255,0.4)]
                    ring-2 ring-amber-200/40
                    active:scale-95 transition-transform"
       >
-        确定
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/buttons/yes.jpg" alt="" className="w-full h-full object-cover" />
       </button>
     </div>
   )
