@@ -151,7 +151,36 @@ async function main() {
     if (!ogImage || !ogImage.includes('media.lastcreator.cc')) throw new Error('og:image missing or wrong')
     console.log('   ✅ 分享页 + og meta')
 
-    console.log('\n\n✅ e2e 全部通过')
+    console.log('\n📍 Step 13: GET /api/pets/[id]/tasks 验证诞生时立即派任务')
+    const tasksRes = await context.request.get(`${BASE}/api/pets/${first.id}/tasks`)
+    const tasksJson = await tasksRes.json()
+    console.log(`   active task: kind=${tasksJson.active?.kind} prompt="${tasksJson.active?.prompt}"`)
+    console.log(`   dailyDone=${tasksJson.dailyDone}/${tasksJson.dailyMax}`)
+    if (!tasksJson.active || !tasksJson.active.id?.startsWith('t_')) {
+      throw new Error('expected active task after birth')
+    }
+    const taskId = tasksJson.active.id
+
+    console.log('\n📍 Step 14: POST /api/tasks/[id]/submit 提交假图 → reward 应用')
+    // 1x1 透明 PNG（最小合法 dataUrl）
+    const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+    const submitRes = await context.request.post(`${BASE}/api/tasks/${taskId}/submit`, {
+      data: { dataUrl: tinyPng },
+    })
+    const submitJson = await submitRes.json()
+    console.log(`   verdict: pass=${submitJson.verdict?.pass} reason="${submitJson.verdict?.reason}"`)
+    console.log(`   new state: hp=${submitJson.state?.hp} exp=${submitJson.state?.exp}`)
+    if (!submitJson.verdict?.pass) throw new Error('task submit expected pass (AlwaysPassVerifier)')
+    if (typeof submitJson.state?.hp !== 'number') throw new Error('expected new state returned')
+    console.log('   ✅ 任务提交 + reward 应用')
+
+    console.log('\n📍 Step 15: /me/[id] 私人详情页 渲染')
+    await page.goto(`${BASE}/me/${first.id}`, { waitUntil: 'networkidle', timeout: 20000 })
+    await page.waitForSelector(`text=${first.name}`, { timeout: 5000 })
+    // 已完成的任务应该不在（会被 lazy 派下一个或显示"今日 X/Y"）
+    console.log('   ✅ /me/[id] 渲染')
+
+    console.log('\n\n✅ e2e 全部通过（v3）')
   } catch (err) {
     console.error('\n❌ e2e 失败:', err.message)
     console.error('\n最近 console 日志:')
