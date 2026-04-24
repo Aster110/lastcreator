@@ -3,33 +3,20 @@ import { useState } from 'react'
 
 interface Props {
   petId: string
-  petName: string
-  story: string
+  /** 保留 props 兼容调用方；现在只复制链接不用 */
+  petName?: string
+  story?: string
   className?: string
 }
 
-export default function ShareActions({ petId, petName, story, className = '' }: Props) {
+export default function ShareActions({ petId, className = '' }: Props) {
   const [copied, setCopied] = useState(false)
 
   const handleShare = async () => {
     const url = typeof window !== 'undefined'
       ? `${window.location.origin}/p/${petId}`
       : `https://lastcreator.cc/p/${petId}`
-    const shareData = {
-      title: `${petName} · 神笔`,
-      text: story,
-      url,
-    }
-    // 优先原生分享（移动端）
-    if (typeof navigator !== 'undefined' && 'share' in navigator) {
-      try {
-        await navigator.share(shareData)
-        return
-      } catch {
-        // 用户取消，fall through 到 copy
-      }
-    }
-    // 兜底：复制链接
+    // 直接复制链接，用户自己去微信/朋友圈粘贴
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
@@ -47,12 +34,12 @@ export default function ShareActions({ petId, petName, story, className = '' }: 
       {copied ? (
         <>
           <span>✓</span>
-          <span>链接已复制</span>
+          <span>链接已复制，去粘贴给朋友吧</span>
         </>
       ) : (
         <>
           <span>↗</span>
-          <span>分享这只宠物</span>
+          <span>复制分享链接</span>
         </>
       )}
     </button>
