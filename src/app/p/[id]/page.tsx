@@ -9,6 +9,17 @@ import ShareActions from '@/components/ui/ShareActions'
 import Countdown from '@/components/ui/Countdown'
 import TaskHistoryList from '@/components/ui/TaskHistoryList'
 import type { DisplayTask } from '@/types/task'
+import type { ElementId } from '@/types/pet'
+
+// 元素属性 → 背景图；无属性（老数据）兜底 daily-bg
+const ELEMENT_BG: Record<ElementId, string> = {
+  ruins: '/bg/ruins.jpg',
+  fire: '/bg/fire.jpg',
+  water: '/bg/water.jpg',
+  ice: '/bg/ice.jpg',
+  dark: '/bg/dark.jpg',
+  sky: '/bg/sky.jpg',
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -75,11 +86,12 @@ export default async function PublicPetPage({ params }: PageProps) {
   const ageDays = computePetAgeDays(pet.createdAt)
   const birthDate = new Date(pet.createdAt)
   const birthDateStr = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
+  const bgUrl = pet.element ? ELEMENT_BG[pet.element] : '/daily-bg.jpg'
 
   return (
     <div
       className="fixed inset-0 bg-gray-950 flex flex-col px-6 py-10 overflow-y-auto bg-cover bg-center bg-no-repeat bg-fixed"
-      style={{ backgroundImage: 'url(/daily-bg.jpg)' }}
+      style={{ backgroundImage: `url(${bgUrl})` }}
     >
       {/* 暗色遮罩：统一反差 */}
       <div className="absolute inset-0 bg-black/40 pointer-events-none" />
