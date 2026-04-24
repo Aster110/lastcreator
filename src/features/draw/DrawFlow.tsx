@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import DrawingCanvas from './DrawingCanvas'
 import LoadingScreen from './LoadingScreen'
+import { COPY } from '@/lib/copy/hints'
 import type { DisplayPet } from '@/types/pet'
 
 type Phase = 'drawing' | 'video1' | 'waitConfirm' | 'waitingForPet' | 'video2' | 'loading'
@@ -31,7 +32,7 @@ const FALLBACK: DisplayPet = {
  * 点 ✓ 即并发启动 /api/generate，两段过场视频覆盖 AI 生成时间。
  * 生成成功（pet 到手）后不再内部渲染 PetCard，改跳 /me?welcome=1，/me 会挂 WelcomeOverlay 展示 yes.jpg。
  */
-type FailMode = null | 'rejected' | 'error'
+type FailMode = null | 'rejected' | 'error' | 'already_alive'
 
 const RETRY_COOLDOWN_SEC = 30
 
@@ -126,6 +127,12 @@ export default function DrawFlow({ open, onClose }: Props) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageDataUrl: dataUrl }),
         })
+        // v3.5: 409 单宠范式拒绝——独立画面，不走 fallback
+        if (res.status === 409) {
+          console.log('[DrawFlow] /api/generate 409 already_alive')
+          setFailMode('already_alive')
+          return
+        }
         const data = (await res.json()) as { pet: DisplayPet; fallback?: boolean; reason?: 'rate_limit' | 'error' }
         console.log('[DrawFlow] /api/generate resp, pet.id =', data.pet?.id, 'fallback =', data.fallback, 'reason =', data.reason)
         if (data.fallback) {
@@ -160,6 +167,9 @@ export default function DrawFlow({ open, onClose }: Props) {
   // rejected（429）优先级最高：立刻打断一切视频，显式"世界拒绝"
   if (failMode === 'rejected') {
     return <RejectedScreen onRetry={handleRetry} onBack={onClose} cooldownSec={cooldownSec} />
+  }
+  if (failMode === 'already_alive') {
+    return <AlreadyAliveScreen onBack={onClose} />
   }
 
   if (phase === 'drawing') {
@@ -296,6 +306,44 @@ function GenFailedScreen({
 /**
  * 429（上游图生图限流）专属画面：打断一切视频，叙事化 "world rejected"
  */
+/**
+ * v3.5: 单宠范式专属拒绝画面（409 already_alive）。
+ * 不走 30s 冷却——主 CTA 是"去看它"（硬跳 /me）。
+ */
+function AlreadyAliveScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-center gap-8 px-8 bg-cover bg-center"
+      style={{ backgroundImage: 'url(/daily-bg.jpg)' }}
+    >
+      <div className="absolute inset-0 bg-black/60 pointer-events-none" />
+      <div className="relative text-5xl opacity-80">🐾</div>
+      <div className="relative text-center space-y-3">
+        <p className="text-white text-xl font-semibold tracking-wider [text-shadow:0_0_20px_rgba(255,255,255,0.2)]">
+          {COPY.drawFlow.alreadyAliveTitle}
+        </p>
+        <p className="text-white/70 text-sm tracking-wider">
+          {COPY.drawFlow.alreadyAliveSubtitle}
+        </p>
+      </div>
+      <div className="relative flex flex-col gap-3 w-full max-w-xs mt-2">
+        <a
+          href="/me"
+          className="w-full h-12 rounded-full bg-white text-gray-900 font-semibold flex items-center justify-center active:scale-95 transition-transform"
+        >
+          {COPY.drawFlow.alreadyAliveCTA}
+        </a>
+        <button
+          onClick={onBack}
+          className="w-full h-12 rounded-full bg-white/10 border border-white/30 text-white/80 text-sm active:scale-95 transition-transform"
+        >
+          返回
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function RejectedScreen({
   onRetry,
   onBack,

@@ -8,6 +8,7 @@ import { pickStyle } from '@/lib/style-prompts'
 import { createPet } from '@/lib/repo/pets'
 import { initPetState } from '@/lib/repo/petState'
 import { calcInitialExpiresAt } from '@/lib/game/lifecycle'
+import { assertCanSummon, AlreadyAliveError } from '@/lib/game/singlePet'
 import { r2PutFromDataUrl } from '@/lib/storage/r2'
 import { emit } from '@/lib/events'
 import { getCtx } from '@/lib/db/client'
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const { userId } = await resolveUser()
+
+    // v3.5: 单宠范式守门——已有活宠时拒绝召唤。必须在所有副作用（zzz/R2/LLM）之前。
+    await assertCanSummon(userId)
 
     // 并行：涂鸦存 R2（备份，可失败）+ zzz 图生图（必需）
     // 属性抽取必须在图生图前，因为 prompt 里含属性约束
@@ -109,6 +113,15 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('[/api/generate] error:', err)
     if (taskRef && ctx) ctx.waitUntil(zzzStudioCleanup(taskRef))
+
+    // v3.5: 单宠范式——已有活宠专属错误，独立 409 分支，不走 fallback
+    if (err instanceof AlreadyAliveError) {
+      return NextResponse.json(
+        { error: 'already_alive', reason: 'already_alive' },
+        { status: 409 },
+      )
+    }
+
     const msg = err instanceof Error ? err.message : String(err)
     // 429 = 上游图生图限流；queue full = 我方门禁早拒。两者 UX 都走"世界拒绝"
     const isRateLimit = /\b429\b/.test(msg) || /queue full/.test(msg)

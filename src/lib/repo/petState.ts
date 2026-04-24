@@ -1,6 +1,7 @@
 import { getDb } from '@/lib/db/client'
 import { publicUrl } from '@/lib/storage/r2'
 import { shouldMarkDead, emitPetDied } from '@/lib/game/lifecycle'
+import { clearAliveOwner } from '@/lib/repo/pets'
 import type { ElementId, FullPet, PetState, PetStatePatch, PetStage, PetStatus } from '@/types/pet'
 
 interface StateRow {
@@ -121,6 +122,8 @@ async function markDead(petId: string): Promise<number> {
     .prepare("UPDATE pets_state SET status='dead', updated_at=? WHERE pet_id=? AND status='alive'")
     .bind(now, petId)
     .run()
+  // v3.5: 单宠约束——释放槽位
+  await clearAliveOwner(petId)
   emitPetDied(petId)
   return now
 }
@@ -248,6 +251,10 @@ export async function patchPetState(petId: string, patch: PetStatePatch): Promis
     .prepare(`UPDATE pets_state SET ${sets.join(', ')} WHERE pet_id = ?`)
     .bind(...values)
     .run()
+  // v3.5: 单宠约束——status 离开 alive 时释放槽位（死不能复活，无需处理进 alive 方向）
+  if (patch.status !== undefined && patch.status !== 'alive') {
+    await clearAliveOwner(petId)
+  }
   // 避免重入懒检查
   const row = await db
     .prepare("SELECT * FROM pets_state WHERE pet_id = ? LIMIT 1")

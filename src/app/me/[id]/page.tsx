@@ -1,7 +1,8 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { readUser } from '@/lib/identity'
 import { getFullPet } from '@/lib/repo/petState'
+import { countAliveByOwner } from '@/lib/repo/pets'
 import MePetDetailClient from './client'
 
 export const dynamic = 'force-dynamic'
@@ -10,6 +11,12 @@ interface PageProps {
   params: Promise<{ id: string }>
 }
 
+/**
+ * v3.5 /me/[id]：
+ * - alive → redirect('/me')（活宠唯一入口是 /me）
+ * - released/dead → 墓碑只读模式
+ * - 非 owner → 跳 /p/[id] 公开页
+ */
 export default async function MePetDetailPage({ params }: PageProps) {
   const { id } = await params
   if (!id?.startsWith('p_')) notFound()
@@ -17,7 +24,6 @@ export default async function MePetDetailPage({ params }: PageProps) {
   const user = await readUser()
   const pet = await getFullPet(id)
 
-  // 非 owner 访问 → 重定向到公开页（/p/[id]）
   if (!pet) notFound()
   if (!user || pet.ownerId !== user.userId) {
     return (
@@ -35,5 +41,14 @@ export default async function MePetDetailPage({ params }: PageProps) {
     )
   }
 
-  return <MePetDetailClient pet={pet} />
+  // v3.5: 活宠统一走 /me
+  if (pet.status === 'alive') {
+    redirect('/me')
+  }
+
+  // 墓碑模式：SSR 预取"当前有无活宠"，决定是否显示"召唤新的一只" CTA
+  const aliveCount = await countAliveByOwner(user.userId)
+  const canSummonNext = aliveCount === 0
+
+  return <MePetDetailClient pet={pet} canSummonNext={canSummonNext} />
 }

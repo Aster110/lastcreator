@@ -52,13 +52,16 @@ function rowToPet(r: PetRow): Pet {
 export async function createPet(data: PetCreate): Promise<Pet> {
   const db = getDb()
   const now = data.createdAt ?? Date.now()
+  const status = data.status ?? 'alive'
+  const aliveOwnerId = status === 'alive' ? data.ownerId : null
   await db
     .prepare(
       `INSERT INTO pets (
         id, owner_id, name, habitat, personality, skills, hp, exp, story,
         image_r2_key, image_origin_url, doodle_r2_key, stage, status,
-        memory_from_pet_id, memory_fragment, element, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        memory_from_pet_id, memory_fragment, element, alive_owner_id,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       data.id,
@@ -74,10 +77,11 @@ export async function createPet(data: PetCreate): Promise<Pet> {
       data.imageOriginUrl ?? null,
       data.doodleR2Key ?? null,
       data.stage ?? '幼年',
-      data.status ?? 'alive',
+      status,
       data.memoryFromPetId ?? null,
       data.memoryFragment ? JSON.stringify(data.memoryFragment) : null,
       data.element ?? null,
+      aliveOwnerId,
       now,
       now,
     )
@@ -119,6 +123,33 @@ export async function countAlivePets(): Promise<number> {
     .prepare("SELECT COUNT(*) as n FROM pets WHERE status = 'alive'")
     .first<{ n: number }>()
   return row?.n ?? 0
+}
+
+/**
+ * v3.5: 单宠约束支撑。基于 alive_owner_id 索引，O(1) 查询。
+ * 注意：读的是 pets.alive_owner_id（由 createPet / patchPetState / markDead / release 维护）。
+ * DB 层 UNIQUE INDEX 是兜底，这个函数用于业务层快速失败（UX 优化）。
+ */
+export async function countAliveByOwner(ownerId: string): Promise<number> {
+  const db = getDb()
+  const row = await db
+    .prepare("SELECT COUNT(*) as n FROM pets WHERE alive_owner_id = ?")
+    .bind(ownerId)
+    .first<{ n: number }>()
+  return row?.n ?? 0
+}
+
+/**
+ * v3.5: 清除指定宠物的 alive_owner_id（转为 NULL）。
+ * 用于 status 从 alive → released/dead 时释放"单宠槽位"。
+ * 由 patchPetState 和 markDead 内部调用（业务代码不直接调）。
+ */
+export async function clearAliveOwner(petId: string): Promise<void> {
+  const db = getDb()
+  await db
+    .prepare("UPDATE pets SET alive_owner_id = NULL WHERE id = ?")
+    .bind(petId)
+    .run()
 }
 
 export async function earliestPetCreatedAt(): Promise<number | null> {
