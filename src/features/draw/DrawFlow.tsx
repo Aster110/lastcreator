@@ -33,11 +33,34 @@ const FALLBACK: DisplayPet = {
  */
 type FailMode = null | 'rejected' | 'error'
 
+const RETRY_COOLDOWN_SEC = 30
+
 export default function DrawFlow({ open, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('drawing')
   const [pet, setPet] = useState<DisplayPet | null>(null)
   const [failMode, setFailMode] = useState<FailMode>(null)
+  const [failedAt, setFailedAt] = useState<number | null>(null)
+  const [cooldownSec, setCooldownSec] = useState(0)
   const router = useRouter()
+
+  // 失败瞬间记录时间戳，用于 30s 重试冷却——防用户暴力连点把 zzz quota 继续打光
+  useEffect(() => {
+    if (failMode) setFailedAt(Date.now())
+  }, [failMode])
+
+  useEffect(() => {
+    if (!failedAt) {
+      setCooldownSec(0)
+      return
+    }
+    const tick = () => {
+      const remain = Math.max(0, RETRY_COOLDOWN_SEC - Math.floor((Date.now() - failedAt) / 1000))
+      setCooldownSec(remain)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [failedAt])
 
   // 预取 /me 让 welcome 跳转瞬时
   useEffect(() => {
@@ -121,7 +144,9 @@ export default function DrawFlow({ open, onClose }: Props) {
   }
 
   const handleRetry = () => {
+    if (cooldownSec > 0) return
     setFailMode(null)
+    setFailedAt(null)
     setPet(null)
     setPhase('drawing')
   }
@@ -134,7 +159,7 @@ export default function DrawFlow({ open, onClose }: Props) {
 
   // rejected（429）优先级最高：立刻打断一切视频，显式"世界拒绝"
   if (failMode === 'rejected') {
-    return <RejectedScreen onRetry={handleRetry} onBack={onClose} />
+    return <RejectedScreen onRetry={handleRetry} onBack={onClose} cooldownSec={cooldownSec} />
   }
 
   if (phase === 'drawing') {
@@ -153,7 +178,7 @@ export default function DrawFlow({ open, onClose }: Props) {
   }
   if (phase === 'waitingForPet') {
     // 非 429 错误在这阶段暴露出来：视频演完了 pet 还没到，等下去没意义
-    if (failMode === 'error') return <GenFailedScreen onRetry={handleRetry} onBack={onClose} />
+    if (failMode === 'error') return <GenFailedScreen onRetry={handleRetry} onBack={onClose} cooldownSec={cooldownSec} />
     return <WaitingForPet posterSrc="/intro-1-last.jpg" />
   }
   if (phase === 'video2') {
@@ -166,7 +191,7 @@ export default function DrawFlow({ open, onClose }: Props) {
     )
   }
   if (phase === 'loading') {
-    if (failMode === 'error') return <GenFailedScreen onRetry={handleRetry} onBack={onClose} />
+    if (failMode === 'error') return <GenFailedScreen onRetry={handleRetry} onBack={onClose} cooldownSec={cooldownSec} />
     return <LoadingScreen />
   }
   return null
@@ -231,10 +256,13 @@ function WaitingForPet({ posterSrc }: { posterSrc: string }) {
 function GenFailedScreen({
   onRetry,
   onBack,
+  cooldownSec,
 }: {
   onRetry: () => void
   onBack: () => void
+  cooldownSec: number
 }) {
+  const disabled = cooldownSec > 0
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-center gap-6 px-8">
       <div className="text-5xl">💢</div>
@@ -245,9 +273,14 @@ function GenFailedScreen({
       <div className="flex flex-col gap-3 w-full max-w-xs mt-4">
         <button
           onClick={onRetry}
-          className="w-full h-12 rounded-full bg-white text-gray-900 font-semibold active:scale-95 transition-transform"
+          disabled={disabled}
+          className={`w-full h-12 rounded-full font-semibold transition-transform ${
+            disabled
+              ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+              : 'bg-white text-gray-900 active:scale-95'
+          }`}
         >
-          重新画
+          {disabled ? `重新画（${cooldownSec}s）` : '重新画'}
         </button>
         <button
           onClick={onBack}
@@ -266,10 +299,13 @@ function GenFailedScreen({
 function RejectedScreen({
   onRetry,
   onBack,
+  cooldownSec,
 }: {
   onRetry: () => void
   onBack: () => void
+  cooldownSec: number
 }) {
+  const disabled = cooldownSec > 0
   return (
     <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-8 px-8">
       <div className="text-6xl opacity-70">🕯️</div>
@@ -277,14 +313,21 @@ function RejectedScreen({
         <p className="text-white text-xl font-semibold tracking-wider [text-shadow:0_0_20px_rgba(220,50,50,0.4)]">
           这个世界拒绝了你的召唤
         </p>
-        <p className="text-gray-500 text-xs tracking-widest">稍后再试</p>
+        <p className="text-gray-500 text-xs tracking-widest">
+          {disabled ? `世界正在恢复...${cooldownSec}s` : '稍后再试'}
+        </p>
       </div>
       <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
         <button
           onClick={onRetry}
-          className="w-full h-12 rounded-full bg-white text-gray-900 font-semibold active:scale-95 transition-transform"
+          disabled={disabled}
+          className={`w-full h-12 rounded-full font-semibold transition-transform ${
+            disabled
+              ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+              : 'bg-white text-gray-900 active:scale-95'
+          }`}
         >
-          重新召唤
+          {disabled ? `重新召唤（${cooldownSec}s）` : '重新召唤'}
         </button>
         <button
           onClick={onBack}

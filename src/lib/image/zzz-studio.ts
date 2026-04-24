@@ -1,8 +1,13 @@
 import type { ImageProvider } from './index'
 
 const BASE = 'https://imagestudio.riveroll.top'
-const POLL_INTERVAL_MS = 3000
-const POLL_TIMEOUT_MS = 50000
+// poll 策略：先等 15s 再轮询（图生图通常要 15-30s 才出结果，早 poll 纯浪费 quota）
+// 前端两段视频 + waitConfirm 总时长 ≥17s，用户感知无延迟
+const POLL_INITIAL_DELAY_MS = 15_000
+const POLL_INTERVAL_MS = 5_000
+const POLL_TIMEOUT_MS = 50_000
+// submit 429 退避：瞬时限流多数 2-5s 能恢复
+const SUBMIT_RETRY_DELAYS_MS = [1_000, 3_000, 7_000]
 
 function token(): string {
   const t = process.env.ZZZ_ACCESS_TOKEN
@@ -36,24 +41,42 @@ async function uploadDoodle(base64DataUrl: string): Promise<{ libraryId: string;
 }
 
 async function submitGenerate(prompt: string, libraryId: string, personId: string): Promise<string> {
-  const res = await fetch(`${BASE}/api/test-field/generate`, {
-    method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt,
-      model_ids: ['wavespeed-gpt-image-1.5'],
-      dimension_mode: 'preset',
-      aspect_ratio: '1:1',
-      person_ids: [{ library_id: libraryId, model_id: personId }],
-    }),
+  const body = JSON.stringify({
+    prompt,
+    model_ids: ['wavespeed-gpt-image-1.5'],
+    dimension_mode: 'preset',
+    aspect_ratio: '1:1',
+    person_ids: [{ library_id: libraryId, model_id: personId }],
   })
-  if (!res.ok) throw new Error(`zzz generate failed: ${res.status}`)
-  const { task_id } = (await res.json()) as { task_id?: string }
-  if (!task_id) throw new Error('zzz generate: no task_id')
-  return task_id
+  const delays = [0, ...SUBMIT_RETRY_DELAYS_MS]
+  let lastStatus = 0
+  for (let i = 0; i < delays.length; i++) {
+    if (delays[i] > 0) {
+      console.log(`[zzz] submit retry #${i} after ${delays[i]}ms (prev status ${lastStatus})`)
+      await new Promise(r => setTimeout(r, delays[i]))
+    }
+    const res = await fetch(`${BASE}/api/test-field/generate`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body,
+    })
+    if (res.ok) {
+      const { task_id } = (await res.json()) as { task_id?: string }
+      if (!task_id) throw new Error('zzz generate: no task_id')
+      return task_id
+    }
+    lastStatus = res.status
+    // 仅对 429 退避重试；4xx/5xx 其它状态直接失败（重试也没用）
+    if (res.status !== 429) break
+  }
+  throw new Error(`zzz generate failed: ${lastStatus}`)
 }
 
 async function pollUntilDone(taskId: string): Promise<void> {
+  // 图生图通常 15-30s 出结果，先等 15s 再轮询，省 2-3 次请求
+  // 前端两段过场视频 + waitConfirm 总时长 ≥17s，poll 延迟用户无感
+  await new Promise(r => setTimeout(r, POLL_INITIAL_DELAY_MS))
+
   const deadline = Date.now() + POLL_TIMEOUT_MS
   while (Date.now() < deadline) {
     const res = await fetch(`${BASE}/api/tasks/${taskId}`, { headers: authHeaders() })
