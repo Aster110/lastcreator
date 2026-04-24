@@ -141,6 +141,16 @@ async function main() {
     await page.waitForSelector(`text=${first.name}`, { timeout: 5000 })
     console.log('   ✅ 档案渲染 + 新宠物在列表')
 
+    console.log('\n📍 Step 12: 打开 /p/[id] 分享页 + OG meta')
+    await page.goto(`${BASE}/p/${first.id}`, { waitUntil: 'networkidle', timeout: 20000 })
+    await page.waitForSelector(`text=${first.name}`, { timeout: 5000 })
+    await page.waitForSelector('text=我也要画一个', { timeout: 5000 })
+    // 断言 og:image 指向 R2 宠物图
+    const ogImage = await page.locator('meta[property="og:image"]').first().getAttribute('content').catch(() => null)
+    console.log(`   og:image: ${ogImage}`)
+    if (!ogImage || !ogImage.includes('media.lastcreator.cc')) throw new Error('og:image missing or wrong')
+    console.log('   ✅ 分享页 + og meta')
+
     console.log('\n\n✅ e2e 全部通过')
   } catch (err) {
     console.error('\n❌ e2e 失败:', err.message)

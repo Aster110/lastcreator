@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import type { DisplayPet } from '@/types/pet'
+import ShareActions from './ShareActions'
 
 interface Props {
   pet: DisplayPet
@@ -106,13 +107,26 @@ export default function PetCard({ pet, onReset }: Props) {
         </p>
       </div>
 
-      <button
-        onClick={onReset}
-        className="mt-8 w-full h-14 rounded-full bg-gray-800 text-gray-400 font-medium active:scale-95 transition-transform anim-fade"
+      {/* 分享 + 再召唤 */}
+      <div
+        className="mt-8 flex flex-col gap-3 anim-fade"
         style={{ animationDelay: `${650 + pet.skills.length * 120 + 250}ms` }}
       >
-        再召唤一只
-      </button>
+        {pet.id && pet.id !== 'local-fallback' && (
+          <ShareActions
+            petId={pet.id}
+            petName={pet.name}
+            story={pet.story}
+            className="w-full"
+          />
+        )}
+        <button
+          onClick={onReset}
+          className="w-full h-14 rounded-full bg-white text-gray-900 font-semibold active:scale-95 transition-transform"
+        >
+          再召唤一只
+        </button>
+      </div>
     </div>
   )
 }
