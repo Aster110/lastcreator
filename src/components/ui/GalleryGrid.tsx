@@ -13,7 +13,7 @@ export default function GalleryGrid({ pets, linkPrefix = '/me' }: Props) {
   if (pets.length === 0) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-600 text-sm">还没有召唤过任何生命</p>
+        <p className="text-white text-sm [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">还没有召唤过任何生命</p>
       </div>
     )
   }
@@ -35,12 +35,12 @@ export default function GalleryGrid({ pets, linkPrefix = '/me' }: Props) {
                 className="w-full h-full object-cover transition-transform group-active:scale-95"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-4xl text-gray-700">
+              <div className="w-full h-full flex items-center justify-center text-4xl text-white/70">
                 🐾
               </div>
             )}
             {p.stage && (
-              <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/50 text-gray-300 text-xs backdrop-blur-sm">
+              <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/50 text-white text-xs backdrop-blur-sm">
                 {p.stage}
               </span>
             )}
@@ -55,11 +55,11 @@ export default function GalleryGrid({ pets, linkPrefix = '/me' }: Props) {
             </div>
           </div>
           <div className="mt-2 px-0.5">
-            <p className="text-gray-200 text-sm truncate">{p.name}</p>
+            <p className="text-white text-sm truncate [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{p.name}</p>
             <div className="flex justify-between items-center gap-1">
-              <p className="text-gray-600 text-xs truncate">{p.habitat}</p>
+              <p className="text-white/80 text-xs truncate [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{p.habitat}</p>
               {typeof p.completedTaskCount === 'number' && p.completedTaskCount > 0 && (
-                <p className="text-gray-700 text-[10px] tabular-nums shrink-0">✓ {p.completedTaskCount}</p>
+                <p className="text-white/80 text-[10px] tabular-nums shrink-0 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">✓ {p.completedTaskCount}</p>
               )}
             </div>
           </div>

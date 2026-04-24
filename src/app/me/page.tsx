@@ -40,45 +40,48 @@ export default async function MePage({ searchParams }: PageProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-gray-950 flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat"
+      className="fixed inset-0 bg-gray-950 flex flex-col overflow-hidden bg-cover bg-center bg-no-repeat bg-fixed"
       style={{ backgroundImage: 'url(/daily-bg.jpg)' }}
     >
-      <div className="flex items-center justify-between px-5 pt-10 pb-4 shrink-0">
+      {/* 暗色遮罩：统一反差 */}
+      <div className="absolute inset-0 bg-black/35 pointer-events-none" />
+
+      <div className="relative flex items-center justify-between px-5 pt-10 pb-4 shrink-0">
         <Link
           href="/"
-          className="w-10 h-10 flex items-center justify-center text-gray-500 text-xl"
+          className="w-10 h-10 flex items-center justify-center text-white text-xl [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
         >
           ←
         </Link>
-        <h1 className="text-gray-200 text-base tracking-widest">末日档案</h1>
+        <h1 className="text-white text-base tracking-widest [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">末日档案</h1>
         <Link
           href="/gallery"
-          className="text-white text-sm px-2"
+          className="text-white text-sm px-2 [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
         >
           图鉴
         </Link>
       </div>
 
-      <div className="px-5 pb-4 shrink-0">
+      <div className="relative px-5 pb-4 shrink-0">
         <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-3">
           <div className="flex items-baseline justify-between">
             <div>
-              <p className="text-gray-500 text-xs tracking-widest uppercase">末日第</p>
+              <p className="text-white text-xs tracking-widest uppercase">末日第</p>
               <p className="text-white text-3xl font-bold tabular-nums mt-0.5">
                 {world.dayCount}
-                <span className="text-gray-500 text-sm font-normal ml-1">天</span>
+                <span className="text-white text-sm font-normal ml-1">天</span>
               </p>
             </div>
             <div className="text-right">
-              <p className="text-gray-500 text-xs">复苏进度</p>
-              <p className="text-gray-300 text-lg tabular-nums">{world.totalHp}</p>
-              <p className="text-gray-600 text-xs">{world.petCount} 个生命</p>
+              <p className="text-white text-xs">复苏进度</p>
+              <p className="text-white text-lg tabular-nums">{world.totalHp}</p>
+              <p className="text-white text-xs">{world.petCount} 个生命</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-24">
+      <div className="relative flex-1 overflow-y-auto px-5 pb-24">
         <GalleryGrid pets={display} />
       </div>
 
