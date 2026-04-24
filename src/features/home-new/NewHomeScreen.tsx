@@ -1,27 +1,25 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
+import DrawFlow from '@/features/draw/DrawFlow'
+import type { WorldState } from '@/lib/game/world'
 
 interface Props {
-  onStart: () => void
+  world: WorldState
+  hasArchive: boolean
 }
 
-interface WorldState {
-  dayCount: number
-  petCount: number
-}
+/**
+ * 新用户/空巢用户的首屏（"神笔"召唤爆点）。
+ * - 无 cookie：hasArchive = false，档案入口隐藏
+ * - 老用户但无活宠：hasArchive = true，保留档案入口看历史（墓碑）
+ */
+export default function NewHomeScreen({ world, hasArchive }: Props) {
+  const [drawing, setDrawing] = useState(false)
 
-export default function NewHomeScreen({ onStart }: Props) {
-  const [world, setWorld] = useState<WorldState | null>(null)
-
-  useEffect(() => {
-    fetch('/api/world')
-      .then(r => r.json() as Promise<WorldState>)
-      .then(setWorld)
-      .catch(() => {})
-  }, [])
-
-  const hasArchive = (world?.petCount ?? 0) > 0
+  if (drawing) {
+    return <DrawFlow open onClose={() => setDrawing(false)} />
+  }
 
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col items-center justify-between px-6 py-16">
@@ -29,11 +27,11 @@ export default function NewHomeScreen({ onStart }: Props) {
       <div className="w-full flex items-start justify-between">
         <div>
           <p className="text-gray-600 text-xs tracking-widest uppercase">
-            末日第 {world?.dayCount ?? '—'} 天
+            末日第 {world.dayCount} 天
           </p>
           {hasArchive && (
             <p className="text-gray-700 text-[10px] mt-1 tracking-wider">
-              {world?.petCount} 个生命存活
+              {world.petCount} 个生命存活
             </p>
           )}
         </div>
@@ -58,7 +56,7 @@ export default function NewHomeScreen({ onStart }: Props) {
 
       {/* 召唤按钮 */}
       <button
-        onClick={onStart}
+        onClick={() => setDrawing(true)}
         className="w-full max-w-xs h-14 rounded-full bg-white text-gray-900 font-semibold text-lg active:scale-95 transition-transform"
       >
         开始召唤

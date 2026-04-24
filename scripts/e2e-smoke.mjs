@@ -180,7 +180,30 @@ async function main() {
     // 已完成的任务应该不在（会被 lazy 派下一个或显示"今日 X/Y"）
     console.log('   ✅ /me/[id] 渲染')
 
-    console.log('\n\n✅ e2e 全部通过（v3）')
+    console.log('\n📍 Step 16: 老用户访问 / → HomePet 分流（cookie 有活宠 → 主宠屏）')
+    await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 20000 })
+    // HomePet 特征：显示宠物名 + "再画一只" 按钮 + "详情" 链接
+    await page.waitForSelector(`text=${first.name}`, { timeout: 5000 })
+    const hasDrawAgain = await page.locator('text=再画一只').count()
+    const hasDetail = await page.locator('text=详情').count()
+    if (hasDrawAgain === 0 || hasDetail === 0) {
+      throw new Error('HomePet 应该显示 "再画一只" 和 "详情" 按钮')
+    }
+    // NewHome 的"开始召唤"不应该出现
+    const hasSummonCTA = await page.locator('text=开始召唤').count()
+    if (hasSummonCTA > 0) {
+      throw new Error('老用户首屏不应渲染 NewHomeScreen 的"开始召唤"按钮')
+    }
+    console.log(`   ✅ / 分流到 HomePet（宠物: ${first.name}）`)
+
+    console.log('\n📍 Step 17: 新访客路径 → NewHome（清 cookie）')
+    await context.clearCookies()
+    await page.goto(`${BASE}/`, { waitUntil: 'networkidle', timeout: 20000 })
+    await page.waitForSelector('text=开始召唤', { timeout: 5000 })
+    await page.waitForSelector('text=神笔', { timeout: 5000 })
+    console.log('   ✅ 清 cookie 后 / 分流回 NewHome')
+
+    console.log('\n\n✅ e2e 全部通过（v3 + Phase 2 HomePet）')
   } catch (err) {
     console.error('\n❌ e2e 失败:', err.message)
     console.error('\n最近 console 日志:')
