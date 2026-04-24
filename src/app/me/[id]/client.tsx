@@ -3,6 +3,8 @@ import Link from 'next/link'
 import { useState } from 'react'
 import TaskPanel from '@/components/ui/TaskPanel'
 import ShareActions from '@/components/ui/ShareActions'
+import TaskHistoryList from '@/components/ui/TaskHistoryList'
+import Countdown from '@/components/ui/Countdown'
 import { usePetTasks } from '@/hooks/usePetTasks'
 import { usePetActions } from '@/hooks/usePetActions'
 import type { FullPet } from '@/types/pet'
@@ -17,6 +19,7 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
   const { release, releasing } = usePetActions(pet.id)
 
   const handleCompleted = (state: { hp: number; exp: number }) => {
+    // v3.2：状态以 refresh 为准（refresh 会重新算 life_expires_at）
     setPet(p => ({ ...p, hp: state.hp, exp: state.exp }))
     void refresh()
   }
@@ -28,6 +31,9 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
       setPet(p => ({ ...p, status: newStatus }))
     }
   }
+
+  const birthDate = new Date(pet.createdAt)
+  const birthDateStr = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
 
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col overflow-hidden">
@@ -51,12 +57,28 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
           )}
         </div>
 
+        {/* 倒计时 + 出生时间 */}
+        <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-3 flex items-center justify-between">
+          <div>
+            <p className="text-gray-600 text-[10px] tracking-widest uppercase mb-0.5">剩余生命</p>
+            <Countdown
+              expiresAt={pet.lifeExpiresAt}
+              status={pet.status}
+              variant="hero"
+              staticLabel={pet.status === 'released' ? '🕊️ 已放生' : pet.status === 'dead' ? '🕯️ 已安息' : ''}
+            />
+          </div>
+          <div className="text-right">
+            <p className="text-gray-600 text-[10px] tracking-widest uppercase mb-0.5">诞生于</p>
+            <p className="text-gray-300 text-xs tabular-nums">{birthDateStr}</p>
+          </div>
+        </div>
+
         {/* 基础属性 */}
         <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-3 space-y-1.5 text-sm">
           <Row label="栖息地" value={pet.habitat} />
           <Row label="性格" value={pet.personality} />
           <Row label="阶段" value={pet.stage} />
-          <Row label="HP" value={String(pet.hp)} highlight />
           <Row label="EXP" value={String(pet.exp)} highlight />
           {pet.mood && <Row label="情绪" value={pet.mood} />}
         </div>
@@ -96,6 +118,14 @@ export default function MePetDetailClient({ pet: initialPet }: Props) {
             <p className="text-gray-500 text-xs">
               {pet.status === 'released' ? '🕊️ 已放生，自由地生活在末日' : '🕯️ 已安息'}
             </p>
+          </div>
+        )}
+
+        {/* 任务履历 */}
+        {tasks && tasks.history && tasks.history.length > 0 && (
+          <div>
+            <p className="text-gray-600 text-xs mb-2">任务履历（{tasks.history.length}）</p>
+            <TaskHistoryList tasks={tasks.history} />
           </div>
         )}
 

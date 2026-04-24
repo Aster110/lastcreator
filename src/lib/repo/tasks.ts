@@ -101,6 +101,21 @@ export async function countDoneTasksForPet(petId: string): Promise<number> {
   return row?.n ?? 0
 }
 
+/**
+ * 任务历史（done/rejected/expired），倒序。默认取最近 20 条。
+ */
+export async function listHistoryForPet(petId: string, limit = 20): Promise<Task[]> {
+  const db = getDb()
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM tasks WHERE pet_id = ? AND status IN ('done','rejected','expired')
+       ORDER BY COALESCE(completed_at, created_at) DESC LIMIT ?`,
+    )
+    .bind(petId, limit)
+    .all<TaskRow>()
+  return results.map(rowToTask)
+}
+
 export async function countCompletedToday(petId: string): Promise<number> {
   const db = getDb()
   const startOfDay = new Date()

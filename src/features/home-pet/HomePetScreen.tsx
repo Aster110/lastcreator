@@ -14,13 +14,14 @@ interface Props {
   pet: FullPet
   world: WorldState
   currentUserId: string
+  completedCount: number
 }
 
 /**
  * 有活宠老用户的首屏。
  * 布局（§10-前端架构 §5 D6）：Header / Hero / TaskPanel / Actions。
  */
-export default function HomePetScreen({ pet: initialPet, world, currentUserId }: Props) {
+export default function HomePetScreen({ pet: initialPet, world, currentUserId, completedCount }: Props) {
   const [pet, setPet] = useState(initialPet)
   const [drawing, setDrawing] = useState(false)
   const { data: tasks, loading, refresh } = usePetTasks(pet.id, pet.status === 'alive')
@@ -29,7 +30,7 @@ export default function HomePetScreen({ pet: initialPet, world, currentUserId }:
     return <DrawFlow open onClose={() => setDrawing(false)} />
   }
 
-  const view = petViewFromFullPet(pet, { currentUserId })
+  const view = petViewFromFullPet(pet, { currentUserId, completedTaskCount: completedCount })
 
   const handleCompleted = (state: { hp: number; exp: number }) => {
     setPet(p => ({ ...p, hp: state.hp, exp: state.exp }))

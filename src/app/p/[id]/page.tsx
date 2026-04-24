@@ -5,6 +5,7 @@ import { getFullPet } from '@/lib/repo/petState'
 import { computePetBirthDay, computePetAgeDays } from '@/lib/game/world'
 import { countDoneTasksForPet } from '@/lib/repo/tasks'
 import ShareActions from '@/components/ui/ShareActions'
+import Countdown from '@/components/ui/Countdown'
 
 export const dynamic = 'force-dynamic'
 
@@ -109,6 +110,20 @@ export default async function PublicPetPage({ params }: PageProps) {
           </p>
         </div>
 
+        {/* 倒计时大号 */}
+        <div
+          className="flex flex-col items-center gap-1 anim-fade-up"
+          style={{ animationDelay: '460ms' }}
+        >
+          <p className="text-gray-600 text-[10px] tracking-widest uppercase">剩余生命</p>
+          <Countdown
+            expiresAt={pet.lifeExpiresAt}
+            status={pet.status}
+            variant="hero"
+            staticLabel={pet.status === 'released' ? '🕊️ 已放生' : pet.status === 'dead' ? '🕯️ 已安息' : ''}
+          />
+        </div>
+
         {/* 属性 */}
         <div
           className="w-full max-w-sm space-y-2 text-sm anim-fade-up"
@@ -117,7 +132,6 @@ export default async function PublicPetPage({ params }: PageProps) {
           <Row label="栖息地" value={pet.habitat} />
           <Row label="性格" value={pet.personality} />
           <Row label="阶段" value={pet.stage} />
-          <Row label="HP" value={String(pet.hp)} highlight />
           <Row label="EXP" value={String(pet.exp)} highlight />
           <Row label="完成任务" value={String(doneTasks)} />
         </div>

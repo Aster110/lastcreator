@@ -1,4 +1,5 @@
 'use client'
+import Countdown from '@/components/ui/Countdown'
 import type { PetView } from '@/types/view'
 
 interface Props {
@@ -39,21 +40,31 @@ export default function HomePetHero({ pet }: Props) {
         )}
       </div>
 
-      {/* HP / EXP / 阶段 */}
+      {/* 生命倒计时大号展示 */}
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-gray-600 text-[10px] tracking-widest uppercase">剩余生命</p>
+        <Countdown
+          expiresAt={pet.lifeExpiresAt}
+          status={pet.status}
+          variant="hero"
+        />
+      </div>
+
+      {/* 阶段 + 已完成任务 */}
       <div className="flex items-center gap-6 text-sm tabular-nums">
-        <div className="text-center">
-          <p className="text-gray-600 text-[10px] tracking-widest uppercase">HP</p>
-          <p className="text-white mt-0.5">{pet.hp}</p>
-        </div>
-        <div className="w-px h-6 bg-gray-800" />
-        <div className="text-center">
-          <p className="text-gray-600 text-[10px] tracking-widest uppercase">EXP</p>
-          <p className="text-white mt-0.5">{pet.exp}</p>
-        </div>
-        <div className="w-px h-6 bg-gray-800" />
         <div className="text-center">
           <p className="text-gray-600 text-[10px] tracking-widest uppercase">阶段</p>
           <p className="text-gray-300 mt-0.5">{pet.stage}</p>
+        </div>
+        <div className="w-px h-6 bg-gray-800" />
+        <div className="text-center">
+          <p className="text-gray-600 text-[10px] tracking-widest uppercase">完成任务</p>
+          <p className="text-white mt-0.5">{pet.completedTaskCount}</p>
+        </div>
+        <div className="w-px h-6 bg-gray-800" />
+        <div className="text-center">
+          <p className="text-gray-600 text-[10px] tracking-widest uppercase">出生</p>
+          <p className="text-gray-300 mt-0.5 text-xs">末日第 {pet.birthDay} 天</p>
         </div>
       </div>
     </div>

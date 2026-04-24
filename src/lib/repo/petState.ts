@@ -1,5 +1,6 @@
 import { getDb } from '@/lib/db/client'
 import { publicUrl } from '@/lib/storage/r2'
+import { shouldMarkDead, emitPetDied } from '@/lib/game/lifecycle'
 import type { FullPet, PetState, PetStatePatch, PetStage, PetStatus } from '@/types/pet'
 
 interface StateRow {
@@ -12,6 +13,7 @@ interface StateRow {
   status: string
   mood: string | null
   extra: string
+  life_expires_at: number | null
   updated_at: number
 }
 
@@ -40,6 +42,7 @@ interface FullRow {
   s_status: string | null
   s_mood: string | null
   s_extra: string | null
+  s_life_expires_at: number | null
   s_updated_at: number | null
 }
 
@@ -54,6 +57,7 @@ function rowToState(r: StateRow): PetState {
     status: r.status as PetStatus,
     mood: r.mood,
     extra: JSON.parse(r.extra || '{}'),
+    lifeExpiresAt: r.life_expires_at,
     updatedAt: r.updated_at,
   }
 }
@@ -81,8 +85,8 @@ function rowToFull(r: FullRow): FullPet {
     // merged
     name: r.s_name ?? r.p_name,
     personality: r.s_personality ?? r.p_personality,
-    habitat: r.p_habitat,                 // v3 先不改 habitat
-    skills: birthSkills,                  // v3 先不改 skills
+    habitat: r.p_habitat,
+    skills: birthSkills,
     hp: r.s_hp ?? r.p_hp,
     exp: r.s_exp ?? 0,
     stage: (r.s_stage as PetStage) ?? '幼年',
@@ -90,6 +94,7 @@ function rowToFull(r: FullRow): FullPet {
     story: r.p_story,
     mood,
     extra,
+    lifeExpiresAt: r.s_life_expires_at,
     updatedAt: r.s_updated_at ?? r.created_at,
   }
 }
@@ -101,23 +106,37 @@ const FULL_PET_COLUMNS = `
   p.skills AS p_skills, p.hp AS p_hp, p.story AS p_story,
   s.name AS s_name, s.personality AS s_personality,
   s.hp AS s_hp, s.exp AS s_exp, s.stage AS s_stage, s.status AS s_status,
-  s.mood AS s_mood, s.extra AS s_extra, s.updated_at AS s_updated_at
+  s.mood AS s_mood, s.extra AS s_extra,
+  s.life_expires_at AS s_life_expires_at,
+  s.updated_at AS s_updated_at
 `
+
+/** 内部：直接把某宠物标 dead（绕过 patchPetState 避免嵌套） */
+async function markDead(petId: string): Promise<number> {
+  const db = getDb()
+  const now = Date.now()
+  await db
+    .prepare("UPDATE pets_state SET status='dead', updated_at=? WHERE pet_id=? AND status='alive'")
+    .bind(now, petId)
+    .run()
+  emitPetDied(petId)
+  return now
+}
 
 /** 诞生时初始化 state，和 pets 行同步创建 */
 export async function initPetState(
   petId: string,
-  seed: { hp: number; stage?: PetStage; status?: PetStatus },
+  seed: { hp: number; stage?: PetStage; status?: PetStatus; lifeExpiresAt?: number | null },
 ): Promise<void> {
   const db = getDb()
   const now = Date.now()
   await db
     .prepare(
-      `INSERT INTO pets_state (pet_id, hp, exp, stage, status, extra, updated_at)
-       VALUES (?, ?, 0, ?, ?, '{}', ?)
+      `INSERT INTO pets_state (pet_id, hp, exp, stage, status, extra, life_expires_at, updated_at)
+       VALUES (?, ?, 0, ?, ?, '{}', ?, ?)
        ON CONFLICT(pet_id) DO NOTHING`,
     )
-    .bind(petId, seed.hp, seed.stage ?? '幼年', seed.status ?? 'alive', now)
+    .bind(petId, seed.hp, seed.stage ?? '幼年', seed.status ?? 'alive', seed.lifeExpiresAt ?? null, now)
     .run()
 }
 
@@ -127,7 +146,13 @@ export async function getState(petId: string): Promise<PetState | null> {
     .prepare("SELECT * FROM pets_state WHERE pet_id = ? LIMIT 1")
     .bind(petId)
     .first<StateRow>()
-  return row ? rowToState(row) : null
+  if (!row) return null
+  const state = rowToState(row)
+  if (shouldMarkDead(state)) {
+    const now = await markDead(petId)
+    return { ...state, status: 'dead', updatedAt: now }
+  }
+  return state
 }
 
 export async function getFullPet(petId: string): Promise<FullPet | null> {
@@ -139,7 +164,13 @@ export async function getFullPet(petId: string): Promise<FullPet | null> {
     )
     .bind(petId)
     .first<FullRow>()
-  return row ? rowToFull(row) : null
+  if (!row) return null
+  const full = rowToFull(row)
+  if (shouldMarkDead(full)) {
+    const now = await markDead(petId)
+    return { ...full, status: 'dead', updatedAt: now }
+  }
+  return full
 }
 
 export async function listFullPetsByOwner(
@@ -155,7 +186,17 @@ export async function listFullPetsByOwner(
     )
     .bind(ownerId, limit)
     .all<FullRow>()
-  return results.map(rowToFull)
+  const pets = results.map(rowToFull)
+  const now = Date.now()
+  // 批量懒检查：过期的 alive → dead
+  for (const p of pets) {
+    if (shouldMarkDead(p, now)) {
+      await markDead(p.id)
+      p.status = 'dead'
+      p.updatedAt = now
+    }
+  }
+  return pets
 }
 
 /** diff-aware 写入 state */
@@ -172,6 +213,7 @@ export async function patchPetState(petId: string, patch: PetStatePatch): Promis
   if (patch.status !== undefined) { sets.push('status = ?'); values.push(patch.status) }
   if (patch.mood !== undefined) { sets.push('mood = ?'); values.push(patch.mood) }
   if (patch.extra !== undefined) { sets.push('extra = ?'); values.push(JSON.stringify(patch.extra)) }
+  if (patch.lifeExpiresAt !== undefined) { sets.push('life_expires_at = ?'); values.push(patch.lifeExpiresAt) }
   sets.push('updated_at = ?')
   values.push(now, petId)
 
@@ -179,7 +221,11 @@ export async function patchPetState(petId: string, patch: PetStatePatch): Promis
     .prepare(`UPDATE pets_state SET ${sets.join(', ')} WHERE pet_id = ?`)
     .bind(...values)
     .run()
-  const out = await getState(petId)
-  if (!out) throw new Error(`petState.patch: state missing after update (pet_id=${petId})`)
-  return out
+  // 避免重入懒检查
+  const row = await db
+    .prepare("SELECT * FROM pets_state WHERE pet_id = ? LIMIT 1")
+    .bind(petId)
+    .first<StateRow>()
+  if (!row) throw new Error(`petState.patch: state missing after update (pet_id=${petId})`)
+  return rowToState(row)
 }

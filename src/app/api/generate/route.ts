@@ -7,6 +7,7 @@ import { openRouterGenerator } from '@/lib/ai'
 import { randomPrompt } from '@/lib/style-prompts'
 import { createPet } from '@/lib/repo/pets'
 import { initPetState } from '@/lib/repo/petState'
+import { calcInitialExpiresAt } from '@/lib/game/lifecycle'
 import { r2PutFromDataUrl } from '@/lib/storage/r2'
 import { emit } from '@/lib/events'
 import { getCtx } from '@/lib/db/client'
@@ -79,8 +80,9 @@ export async function POST(req: NextRequest) {
       status: 'alive',
     })
 
-    // v3：初始化 pets_state（可变状态，后续 task reward 写这里）
-    await initPetState(pet.id, { hp: pet.hp, stage: '幼年', status: 'alive' })
+    // v3.2：初始化 pets_state + 生命倒计时
+    const lifeExpiresAt = calcInitialExpiresAt(attrs.lifeBonusMinutes ?? 0)
+    await initPetState(pet.id, { hp: pet.hp, stage: '幼年', status: 'alive', lifeExpiresAt })
 
     emit({ type: 'pet.born', petId: pet.id, ownerId: userId, at: Date.now() })
 
@@ -94,7 +96,10 @@ export async function POST(req: NextRequest) {
       story: pet.story,
       imageUrl: pet.imageUrl,
       stage: pet.stage,
+      status: 'alive',
       createdAt: pet.createdAt,
+      lifeExpiresAt,
+      completedTaskCount: 0,
     }
     return NextResponse.json({ pet: display })
   } catch (err) {

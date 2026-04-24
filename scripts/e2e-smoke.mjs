@@ -168,11 +168,14 @@ async function main() {
       data: { dataUrl: tinyPng },
     })
     const submitJson = await submitRes.json()
-    console.log(`   verdict: pass=${submitJson.verdict?.pass} reason="${submitJson.verdict?.reason}"`)
-    console.log(`   new state: hp=${submitJson.state?.hp} exp=${submitJson.state?.exp}`)
-    if (!submitJson.verdict?.pass) throw new Error('task submit expected pass (AlwaysPassVerifier)')
-    if (typeof submitJson.state?.hp !== 'number') throw new Error('expected new state returned')
-    console.log('   ✅ 任务提交 + reward 应用')
+    if (!submitJson.verdict) throw new Error('verdict missing')
+    if (typeof submitJson.verdict.completion !== 'number') throw new Error('verdict.completion missing (v3.2)')
+    console.log(`   verdict: pass=${submitJson.verdict.pass} completion=${submitJson.verdict.completion} reason="${submitJson.verdict.reason}"`)
+    if (submitJson.verdict.pass) {
+      console.log(`   effective reward: ${JSON.stringify(submitJson.effectiveReward)}`)
+      console.log(`   life extended: ${Math.round((submitJson.lifeExtendedMs ?? 0) / 60000)} min`)
+    }
+    console.log('   ✅ 任务提交 + verdict 结构完整（v3.2 Vision）')
 
     console.log('\n📍 Step 15: /me/[id] 私人详情页 渲染')
     await page.goto(`${BASE}/me/${first.id}`, { waitUntil: 'networkidle', timeout: 20000 })
@@ -203,7 +206,19 @@ async function main() {
     await page.waitForSelector('text=神笔', { timeout: 5000 })
     console.log('   ✅ 清 cookie 后 / 分流回 NewHome')
 
-    console.log('\n\n✅ e2e 全部通过（v3 + Phase 2 HomePet）')
+    console.log('\n📍 Step 18: v3.2 lifeExpiresAt 初始寿命合理')
+    const petApi = await fetch(`${BASE}/api/pets/${first.id}`).then(r => r.json())
+    const lifeExpires = petApi.pet?.lifeExpiresAt
+    if (!lifeExpires) throw new Error('pet api 缺 lifeExpiresAt（v3.2 必需）')
+    const remainingMin = (lifeExpires - Date.now()) / 60000
+    console.log(`   剩余 ${remainingMin.toFixed(1)} min；expires=${lifeExpires}`)
+    // 初始 1h + 0-120min = 60-180min；+ 续命；允许 30-500 min 广范围
+    if (remainingMin < 30 || remainingMin > 500) {
+      throw new Error(`lifeExpiresAt 超出合理范围: ${remainingMin.toFixed(1)}min`)
+    }
+    console.log('   ✅ 生命倒计时初始值合理')
+
+    console.log('\n\n✅ e2e 全部通过（v3.2：Vision Verifier + 生命倒计时 + 任务历史）')
   } catch (err) {
     console.error('\n❌ e2e 失败:', err.message)
     console.error('\n最近 console 日志:')

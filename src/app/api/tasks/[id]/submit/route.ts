@@ -3,8 +3,8 @@ import { ensureSubscribers } from '@/lib/events/subscribers'
 import { resolveUser } from '@/lib/identity'
 import { getTask, updateTaskStatus } from '@/lib/repo/tasks'
 import { getFullPet } from '@/lib/repo/petState'
-import { alwaysPassVerifier } from '@/lib/game/tasks/verifier'
-import { applyReward } from '@/lib/game/tasks/rewards'
+import { pickVerifier } from '@/lib/game/tasks/verifier'
+import { applyReward, discountReward } from '@/lib/game/tasks/rewards'
 import { r2PutFromDataUrl } from '@/lib/storage/r2'
 import { emit } from '@/lib/events'
 import type { TaskProof, DisplayTask } from '@/types/task'
@@ -12,7 +12,7 @@ import type { TaskProof, DisplayTask } from '@/types/task'
 /**
  * POST /api/tasks/:id/submit
  * body: { dataUrl: 'data:image/png;base64,...' }
- * 流程：校验 owner → 上传 proof R2 → verifier.verify → 若 pass 应用 reward → emit
+ * 流程：校验 owner → 上传 proof R2 → verifier.verify → 若 pass 按 completion 打折 → 应用 reward → emit
  */
 export async function POST(
   req: NextRequest,
@@ -44,38 +44,56 @@ export async function POST(
     const pet = await getFullPet(task.petId)
     if (!pet) return NextResponse.json({ error: 'pet not found' }, { status: 404 })
     if (pet.ownerId !== userId) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
+    if (pet.status !== 'alive') {
+      return NextResponse.json({ error: `pet is ${pet.status}` }, { status: 409 })
+    }
 
     // 1. 上传 proof 到 R2
     const r2Key = `tasks/${id}/proof.png`
     const { publicUrl } = await r2PutFromDataUrl(body.dataUrl, r2Key)
 
     // 2. 标记 submitted
-    const now = Date.now()
-    await updateTaskStatus(id, 'submitted', { proofR2Key: r2Key, submittedAt: now })
-    emit({ type: 'task.submitted', taskId: id, petId: task.petId, proofR2Key: r2Key, at: now })
+    const submittedAt = Date.now()
+    await updateTaskStatus(id, 'submitted', { proofR2Key: r2Key, submittedAt })
+    emit({ type: 'task.submitted', taskId: id, petId: task.petId, proofR2Key: r2Key, at: submittedAt })
 
-    // 3. 验证
+    // 3. 验证（Claude Vision or fallback）
     const proof: TaskProof = { kind: task.kind, r2Key, imageUrl: publicUrl }
-    const verdict = await alwaysPassVerifier.verify(task, proof)
+    const verifier = pickVerifier()
+    const verdict = await verifier.verify(task, proof)
 
     if (!verdict.pass) {
-      await updateTaskStatus(id, 'rejected', { aiVerdict: verdict })
-      emit({ type: 'task.rejected', taskId: id, petId: task.petId, reason: verdict.reason, at: Date.now() })
+      const rejectedAt = Date.now()
+      await updateTaskStatus(id, 'rejected', { aiVerdict: verdict, completedAt: rejectedAt })
+      emit({ type: 'task.rejected', taskId: id, petId: task.petId, reason: verdict.reason, at: rejectedAt })
       return NextResponse.json({
         task: toDisplay(id, task.kind, task.prompt, task.reward, 'rejected', task.expiresAt, r2Key, verdict),
         verdict,
       })
     }
 
-    // 4. pass → 结算
-    await updateTaskStatus(id, 'done', { aiVerdict: verdict, completedAt: Date.now() })
-    const newState = await applyReward(task.petId, task.reward)
-    emit({ type: 'task.completed', taskId: id, petId: task.petId, reward: task.reward, at: Date.now() })
+    // 4. pass → 按 completion 打折 → 应用 reward
+    const effective = discountReward(task.reward, verdict.completion)
+    const { state: newState, lifeExtendedMs } = await applyReward(task.petId, effective)
+
+    const completedAt = Date.now()
+    await updateTaskStatus(id, 'done', { aiVerdict: verdict, completedAt })
+    emit({
+      type: 'task.completed',
+      taskId: id,
+      petId: task.petId,
+      reward: effective,
+      completion: verdict.completion,
+      lifeExtendedMs,
+      at: completedAt,
+    })
 
     return NextResponse.json({
       task: toDisplay(id, task.kind, task.prompt, task.reward, 'done', task.expiresAt, r2Key, verdict),
       verdict,
       state: newState,
+      effectiveReward: effective,
+      lifeExtendedMs,
     })
   } catch (err) {
     console.error('[/api/tasks/[id]/submit]', err)

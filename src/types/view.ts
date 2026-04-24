@@ -38,6 +38,16 @@ export interface PetView {
   doodleR2Key?: string | null
   /** 继承自哪只宠物（记忆链） */
   memoryFromPetId?: string | null
+
+  // ===== v3.2 生命倒计时与任务统计 =====
+  /** 生命终点 UNIX ms；null = 老数据或非 alive */
+  lifeExpiresAt: number | null
+  /** SSR 生成时的剩余毫秒 snapshot（前端倒计时以此为起点） */
+  lifeRemainingMs: number
+  /** 派生：'剩 2h 15m' / '已安息 3 天前' / '已放生' / '' */
+  lifeStatusLabel: string
+  /** 已完成（status='done'）任务数 */
+  completedTaskCount: number
 }
 
 export interface PillDesc {

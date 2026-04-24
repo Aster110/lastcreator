@@ -9,17 +9,22 @@ export type TaskStatus =
   | 'expired'     // 过期未完成
 
 export interface Reward {
+  /** @deprecated v3.2 起语义废弃（hp 字段被生命倒计时取代），保留为类型兼容 */
   hp?: number
   exp?: number
   mood?: string
-  unlockSkill?: boolean      // v4
+  /** v3.2 新增：续命分钟数（主奖励通道） */
+  minutes?: number
+  unlockSkill?: boolean
 }
 
 export interface TaskVerdict {
   pass: boolean
-  confidence?: number        // 0-1
+  /** v3.2 新增：完成度 0-1，实际 reward = template.reward × completion */
+  completion: number
+  confidence?: number
   reason: string
-  rawResponse?: string       // v4 Claude 原始响应
+  rawResponse?: string
 }
 
 export interface Task {

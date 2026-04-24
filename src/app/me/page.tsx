@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { readUser } from '@/lib/identity'
 import { listFullPetsByOwner } from '@/lib/repo/petState'
+import { countDoneTasksForPet } from '@/lib/repo/tasks'
 import { computeWorld } from '@/lib/game/world'
 import GalleryGrid from '@/components/ui/GalleryGrid'
 import type { DisplayPet, FullPet } from '@/types/pet'
@@ -13,8 +14,9 @@ export default async function MePage() {
     user ? listFullPetsByOwner(user.userId, { limit: 200 }) : Promise.resolve([] as FullPet[]),
     computeWorld(),
   ])
-  // v3: 用 FullPet（merged state），显示最新的 hp/stage/name
-  const display: DisplayPet[] = pets.map(p => ({
+  // v3.2：并行预取每只宠物的 done 任务数
+  const counts = await Promise.all(pets.map(p => countDoneTasksForPet(p.id)))
+  const display: DisplayPet[] = pets.map((p, i) => ({
     id: p.id,
     name: p.name,
     habitat: p.habitat,
@@ -24,12 +26,14 @@ export default async function MePage() {
     story: p.story,
     imageUrl: p.imageUrl,
     stage: p.stage,
+    status: p.status,
     createdAt: p.createdAt,
+    lifeExpiresAt: p.lifeExpiresAt,
+    completedTaskCount: counts[i],
   }))
 
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-5 pt-10 pb-4 shrink-0">
         <Link
           href="/"
@@ -41,7 +45,6 @@ export default async function MePage() {
         <div className="w-10" />
       </div>
 
-      {/* 世界状态 */}
       <div className="px-5 pb-4 shrink-0">
         <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-3">
           <div className="flex items-baseline justify-between">
@@ -61,12 +64,10 @@ export default async function MePage() {
         </div>
       </div>
 
-      {/* Grid */}
       <div className="flex-1 overflow-y-auto px-5 pb-24">
         <GalleryGrid pets={display} />
       </div>
 
-      {/* 底部新建按钮 */}
       <div className="absolute bottom-0 inset-x-0 px-5 pb-8 pt-6 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent">
         <Link
           href="/"

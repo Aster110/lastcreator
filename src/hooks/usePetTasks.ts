@@ -6,6 +6,8 @@ export interface TasksPayload {
   active: DisplayTask | null
   dailyDone: number
   dailyMax: number
+  /** v3.2：任务履历（已完成/拒绝/过期），倒序，最多 20 条 */
+  history: DisplayTask[]
 }
 
 /**

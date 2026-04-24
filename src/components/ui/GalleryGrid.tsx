@@ -1,5 +1,6 @@
 'use client'
 import Link from 'next/link'
+import Countdown from './Countdown'
 import type { DisplayPet } from '@/types/pet'
 
 interface Props {
@@ -43,10 +44,24 @@ export default function GalleryGrid({ pets, linkPrefix = '/me' }: Props) {
                 {p.stage}
               </span>
             )}
+            {/* 倒计时徽章 */}
+            <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm">
+              <Countdown
+                expiresAt={p.lifeExpiresAt ?? null}
+                status={p.status ?? 'alive'}
+                variant="inline"
+                staticLabel={p.status === 'released' ? '🕊️ 放生' : p.status === 'dead' ? '🕯️ 安息' : ''}
+              />
+            </div>
           </div>
           <div className="mt-2 px-0.5">
             <p className="text-gray-200 text-sm truncate">{p.name}</p>
-            <p className="text-gray-600 text-xs truncate">{p.habitat}</p>
+            <div className="flex justify-between items-center gap-1">
+              <p className="text-gray-600 text-xs truncate">{p.habitat}</p>
+              {typeof p.completedTaskCount === 'number' && p.completedTaskCount > 0 && (
+                <p className="text-gray-700 text-[10px] tabular-nums shrink-0">✓ {p.completedTaskCount}</p>
+              )}
+            </div>
           </div>
         </Link>
       ))}

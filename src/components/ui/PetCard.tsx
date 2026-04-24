@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import type { DisplayPet } from '@/types/pet'
 import ShareActions from './ShareActions'
+import Countdown from './Countdown'
 
 interface Props {
   pet: DisplayPet
@@ -58,6 +59,21 @@ export default function PetCard({ pet, onReset }: Props) {
           {pet.name}
         </h2>
 
+        {/* 初始寿命 */}
+        {pet.lifeExpiresAt && (
+          <div
+            className="flex flex-col items-center gap-1 anim-fade-up"
+            style={{ animationDelay: '400ms' }}
+          >
+            <p className="text-gray-600 text-[10px] tracking-widest uppercase">剩余生命</p>
+            <Countdown
+              expiresAt={pet.lifeExpiresAt}
+              status={pet.status ?? 'alive'}
+              variant="hero"
+            />
+          </div>
+        )}
+
         {/* 属性 */}
         <div
           className="w-full space-y-2 text-sm anim-fade-up"
@@ -70,10 +86,6 @@ export default function PetCard({ pet, onReset }: Props) {
           <div className="flex justify-between text-gray-500">
             <span>性格</span>
             <span className="text-gray-300">{pet.personality}</span>
-          </div>
-          <div className="flex justify-between text-gray-500">
-            <span>HP</span>
-            <span className="text-gray-300">{pet.hp}</span>
           </div>
         </div>
 
