@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ensureSubscribers } from '@/lib/events/subscribers'
 import { resolveUser } from '@/lib/identity'
 import { prefixedId } from '@/lib/db/nanoid'
 import { zzzStudioProvider, zzzStudioCleanup, r2Persistor } from '@/lib/image'
 import { openRouterGenerator } from '@/lib/ai'
 import { randomPrompt } from '@/lib/style-prompts'
 import { createPet } from '@/lib/repo/pets'
+import { initPetState } from '@/lib/repo/petState'
 import { r2PutFromDataUrl } from '@/lib/storage/r2'
 import { emit } from '@/lib/events'
 import { getCtx } from '@/lib/db/client'
@@ -22,6 +24,7 @@ const FALLBACK: DisplayPet = {
 }
 
 export async function POST(req: NextRequest) {
+  ensureSubscribers()
   const body = (await req.json()) as { imageDataUrl?: string; memoryHint?: string }
   const { imageDataUrl, memoryHint } = body
   if (!imageDataUrl) {
@@ -75,6 +78,9 @@ export async function POST(req: NextRequest) {
       stage: '幼年',
       status: 'alive',
     })
+
+    // v3：初始化 pets_state（可变状态，后续 task reward 写这里）
+    await initPetState(pet.id, { hp: pet.hp, stage: '幼年', status: 'alive' })
 
     emit({ type: 'pet.born', petId: pet.id, ownerId: userId, at: Date.now() })
 

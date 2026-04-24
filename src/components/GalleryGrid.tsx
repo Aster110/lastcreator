@@ -4,9 +4,11 @@ import type { DisplayPet } from '@/types/pet'
 
 interface Props {
   pets: DisplayPet[]
+  /** 点击宠物卡跳的 URL 前缀，默认 /me（私人详情）。公开场景传 /p */
+  linkPrefix?: string
 }
 
-export default function GalleryGrid({ pets }: Props) {
+export default function GalleryGrid({ pets, linkPrefix = '/me' }: Props) {
   if (pets.length === 0) {
     return (
       <div className="text-center py-20">
@@ -20,7 +22,7 @@ export default function GalleryGrid({ pets }: Props) {
       {pets.map(p => (
         <Link
           key={p.id}
-          href={`/p/${p.id}`}
+          href={`${linkPrefix}/${p.id}`}
           className="group"
         >
           <div className="aspect-square rounded-xl overflow-hidden bg-gray-900 border border-gray-800 relative">

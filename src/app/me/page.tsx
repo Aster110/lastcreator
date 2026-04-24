@@ -1,18 +1,19 @@
 import Link from 'next/link'
 import { readUser } from '@/lib/identity'
-import { listPetsByOwner } from '@/lib/repo/pets'
+import { listFullPetsByOwner } from '@/lib/repo/petState'
 import { computeWorld } from '@/lib/game/world'
 import GalleryGrid from '@/components/GalleryGrid'
-import type { DisplayPet, Pet } from '@/types/pet'
+import type { DisplayPet, FullPet } from '@/types/pet'
 
 export const dynamic = 'force-dynamic'
 
 export default async function MePage() {
   const user = await readUser()
   const [pets, world] = await Promise.all([
-    user ? listPetsByOwner(user.userId, { limit: 200 }) : Promise.resolve([] as Pet[]),
+    user ? listFullPetsByOwner(user.userId, { limit: 200 }) : Promise.resolve([] as FullPet[]),
     computeWorld(),
   ])
+  // v3: 用 FullPet（merged state），显示最新的 hp/stage/name
   const display: DisplayPet[] = pets.map(p => ({
     id: p.id,
     name: p.name,
