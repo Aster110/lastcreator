@@ -1,32 +1,15 @@
-import { readUser } from '@/lib/identity'
-import { listFullPetsByOwner } from '@/lib/repo/petState'
-import { countDoneTasksForPet } from '@/lib/repo/tasks'
-import { computeWorld } from '@/lib/game/world'
-import { decideHome } from '@/lib/routing/decideHome'
-import NewHomeScreen from '@/features/home-new/NewHomeScreen'
-import HomePetScreen from '@/features/home-pet/HomePetScreen'
+import { cookies } from 'next/headers'
+import SplashScreen from '@/features/home-splash/SplashScreen'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * 首屏只看 cookie 存在性，不查 DB：
+ * - 无 cookie（全新用户）→ splash 按钮直达 /draw
+ * - 有 cookie（老用户）→ splash 按钮去 /me，由 /me 自己处理活宠/墓碑分流
+ */
 export default async function RootPage() {
-  const user = await readUser()
-  const [pets, world] = await Promise.all([
-    user ? listFullPetsByOwner(user.userId, { limit: 10 }) : Promise.resolve([]),
-    computeWorld(),
-  ])
-  const decision = decideHome({ user, pets })
-
-  if (decision.kind === 'pet') {
-    const completedCount = await countDoneTasksForPet(decision.pet.id)
-    return (
-      <HomePetScreen
-        pet={decision.pet}
-        world={world}
-        currentUserId={user!.userId}
-        completedCount={completedCount}
-      />
-    )
-  }
-
-  return <NewHomeScreen world={world} hasArchive={decision.kind === 'empty'} />
+  const jar = await cookies()
+  const hasRecord = !!jar.get('lc_anon')?.value
+  return <SplashScreen target={hasRecord ? '/me' : '/draw'} />
 }

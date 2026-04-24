@@ -6,10 +6,13 @@ import Countdown from './Countdown'
 
 interface Props {
   pet: DisplayPet
+  /** 再画一只（内部 reset，不离开当前路由） */
   onReset: () => void
+  /** 退出召唤流程（一般跳到档案页），没传就不渲染返回按钮 */
+  onClose?: () => void
 }
 
-export default function PetCard({ pet, onReset }: Props) {
+export default function PetCard({ pet, onReset, onClose }: Props) {
   const [imgError, setImgError] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
 
@@ -24,6 +27,15 @@ export default function PetCard({ pet, onReset }: Props) {
 
   return (
     <div className="fixed inset-0 bg-gray-950 flex flex-col px-6 py-16 overflow-y-auto">
+      {onClose && (
+        <button
+          onClick={onClose}
+          aria-label="返回档案"
+          className="absolute top-8 left-4 w-10 h-10 flex items-center justify-center text-gray-500 text-xl active:scale-90 transition-transform"
+        >
+          ←
+        </button>
+      )}
       <div className="flex-1 flex flex-col items-center gap-6">
 
         {/* 宠物图像 */}

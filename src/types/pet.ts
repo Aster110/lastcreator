@@ -1,5 +1,6 @@
 export type PetStage = '幼年' | '青年' | '成年' | '老年'
 export type PetStatus = 'alive' | 'released' | 'dead'
+export type ElementId = 'ruins' | 'fire' | 'water' | 'dark' | 'ice' | 'sky'
 
 export interface PetAttributes {
   name: string
@@ -25,6 +26,8 @@ export interface Pet extends PetAttributes {
   status: PetStatus
   memoryFromPetId?: string | null
   memoryFragment?: Record<string, unknown> | null
+  /** v3.3：诞生时分配的元素属性（null = 老数据未分配） */
+  element?: ElementId | null
   createdAt: number
   updatedAt: number
 }
@@ -52,6 +55,8 @@ export type DisplayPet = {
   lifeExpiresAt?: number | null
   /** v3.2 新增：完成任务数（SSR 预取） */
   completedTaskCount?: number
+  /** v3.3 新增：元素属性 */
+  element?: ElementId | null
 }
 
 // ========== v3：状态解耦 ==========
@@ -89,6 +94,8 @@ export interface FullPet {
   doodleR2Key?: string | null
   memoryFromPetId?: string | null
   memoryFragment?: Record<string, unknown> | null
+  /** v3.3：诞生时分配的元素属性 */
+  element?: ElementId | null
   createdAt: number
   birthName: string
   birthHabitat: string

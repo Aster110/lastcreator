@@ -70,7 +70,7 @@ export default async function MePage() {
 
       <div className="absolute bottom-0 inset-x-0 px-5 pb-8 pt-6 bg-gradient-to-t from-gray-950 via-gray-950/90 to-transparent">
         <Link
-          href="/"
+          href="/draw"
           className="flex items-center justify-center w-full h-14 rounded-full bg-white text-gray-900 font-semibold text-base active:scale-95 transition-transform"
         >
           + 召唤新生命

@@ -1,7 +1,7 @@
 import { getDb } from '@/lib/db/client'
 import { publicUrl } from '@/lib/storage/r2'
 import { shouldMarkDead, emitPetDied } from '@/lib/game/lifecycle'
-import type { FullPet, PetState, PetStatePatch, PetStage, PetStatus } from '@/types/pet'
+import type { ElementId, FullPet, PetState, PetStatePatch, PetStage, PetStatus } from '@/types/pet'
 
 interface StateRow {
   pet_id: string
@@ -33,6 +33,7 @@ interface FullRow {
   p_skills: string
   p_hp: number
   p_story: string
+  p_element: string | null
   // pets_state
   s_name: string | null
   s_personality: string | null
@@ -75,6 +76,7 @@ function rowToFull(r: FullRow): FullPet {
     doodleR2Key: r.doodle_r2_key,
     memoryFromPetId: r.memory_from_pet_id,
     memoryFragment: r.memory_fragment ? JSON.parse(r.memory_fragment) : null,
+    element: (r.p_element as ElementId | null) ?? null,
     createdAt: r.created_at,
     birthName: r.p_name,
     birthHabitat: r.p_habitat,
@@ -103,7 +105,7 @@ const FULL_PET_COLUMNS = `
   p.id, p.owner_id, p.image_r2_key, p.image_origin_url, p.doodle_r2_key,
   p.memory_from_pet_id, p.memory_fragment, p.created_at,
   p.name AS p_name, p.habitat AS p_habitat, p.personality AS p_personality,
-  p.skills AS p_skills, p.hp AS p_hp, p.story AS p_story,
+  p.skills AS p_skills, p.hp AS p_hp, p.story AS p_story, p.element AS p_element,
   s.name AS s_name, s.personality AS s_personality,
   s.hp AS s_hp, s.exp AS s_exp, s.stage AS s_stage, s.status AS s_status,
   s.mood AS s_mood, s.extra AS s_extra,

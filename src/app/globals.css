@@ -77,3 +77,18 @@ body {
 .anim-fade-up   { animation: fadeInUp 0.4s ease both; }
 .anim-fade      { animation: fadeIn   0.4s ease both; }
 .anim-glow      { animation: glowPulse 2s ease-in-out 0.8s infinite; }
+
+/* 呼吸漂浮：不均匀节奏（吸气 40% / 呼气 60%），无停留 */
+@keyframes breathe {
+	0%   { transform: translateY(0); }
+	40%  { transform: translateY(-9px); }
+	100% { transform: translateY(0); }
+}
+.anim-breathe { animation: breathe 4s ease-in-out infinite; }
+
+/* 点 start 后标题向上飞出 */
+@keyframes flyUp {
+	from { transform: translateY(0);     opacity: 1; }
+	to   { transform: translateY(-80vh); opacity: 0; }
+}
+.anim-fly-up { animation: flyUp 0.9s cubic-bezier(0.7, 0, 0.3, 1) forwards; }

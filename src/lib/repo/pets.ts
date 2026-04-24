@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/db/client'
 import { publicUrl } from '@/lib/storage/r2'
-import type { Pet, PetCreate } from '@/types/pet'
+import type { ElementId, Pet, PetCreate } from '@/types/pet'
 
 interface PetRow {
   id: string
@@ -19,6 +19,7 @@ interface PetRow {
   status: string
   memory_from_pet_id: string | null
   memory_fragment: string | null
+  element: string | null
   created_at: number
   updated_at: number
 }
@@ -42,6 +43,7 @@ function rowToPet(r: PetRow): Pet {
     status: r.status as Pet['status'],
     memoryFromPetId: r.memory_from_pet_id,
     memoryFragment: r.memory_fragment ? JSON.parse(r.memory_fragment) : null,
+    element: (r.element as ElementId | null) ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -55,8 +57,8 @@ export async function createPet(data: PetCreate): Promise<Pet> {
       `INSERT INTO pets (
         id, owner_id, name, habitat, personality, skills, hp, exp, story,
         image_r2_key, image_origin_url, doodle_r2_key, stage, status,
-        memory_from_pet_id, memory_fragment, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        memory_from_pet_id, memory_fragment, element, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       data.id,
@@ -75,6 +77,7 @@ export async function createPet(data: PetCreate): Promise<Pet> {
       data.status ?? 'alive',
       data.memoryFromPetId ?? null,
       data.memoryFragment ? JSON.stringify(data.memoryFragment) : null,
+      data.element ?? null,
       now,
       now,
     )

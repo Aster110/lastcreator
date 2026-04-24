@@ -175,7 +175,7 @@ export default async function PublicPetPage({ params }: PageProps) {
           className="w-full"
         />
         <Link
-          href="/"
+          href="/draw"
           className="flex items-center justify-center w-full h-14 rounded-full bg-white text-gray-900 font-semibold text-base active:scale-95 transition-transform"
         >
           我也要画一个

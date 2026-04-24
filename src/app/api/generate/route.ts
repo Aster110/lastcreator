@@ -4,7 +4,7 @@ import { resolveUser } from '@/lib/identity'
 import { prefixedId } from '@/lib/db/nanoid'
 import { zzzStudioProvider, zzzStudioCleanup, r2Persistor } from '@/lib/image'
 import { openRouterGenerator } from '@/lib/ai'
-import { randomPrompt } from '@/lib/style-prompts'
+import { pickStyle } from '@/lib/style-prompts'
 import { createPet } from '@/lib/repo/pets'
 import { initPetState } from '@/lib/repo/petState'
 import { calcInitialExpiresAt } from '@/lib/game/lifecycle'
@@ -45,13 +45,15 @@ export async function POST(req: NextRequest) {
     const { userId } = await resolveUser()
 
     // 并行：涂鸦存 R2（备份，可失败）+ zzz 图生图（必需）
+    // 属性抽取必须在图生图前，因为 prompt 里含属性约束
+    const style = pickStyle()
     const doodleKey = `pets/${petId}/doodle.png`
     const [doodleResult, imageResult] = await Promise.all([
       r2PutFromDataUrl(imageDataUrl, doodleKey).catch(err => {
         console.warn('[generate] doodle save failed (non-fatal):', err)
         return null
       }),
-      zzzStudioProvider.generateFromDoodle(imageDataUrl, randomPrompt()),
+      zzzStudioProvider.generateFromDoodle(imageDataUrl, style.prompt),
     ])
     taskRef = imageResult.taskRef
 
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest) {
       imageUrl,
       imageOriginUrl: imageResult.imageUrl,
       doodleR2Key: doodleResult?.key ?? null,
+      element: style.id,
       exp: 0,
       stage: '幼年',
       status: 'alive',
@@ -100,11 +103,16 @@ export async function POST(req: NextRequest) {
       createdAt: pet.createdAt,
       lifeExpiresAt,
       completedTaskCount: 0,
+      element: pet.element ?? null,
     }
     return NextResponse.json({ pet: display })
   } catch (err) {
     console.error('[/api/generate] error:', err)
     if (taskRef && ctx) ctx.waitUntil(zzzStudioCleanup(taskRef))
-    return NextResponse.json({ pet: { ...FALLBACK, id: petId }, fallback: true })
+    const debugInfo =
+      process.env.NODE_ENV !== 'production'
+        ? { error: err instanceof Error ? err.message : String(err) }
+        : {}
+    return NextResponse.json({ pet: { ...FALLBACK, id: petId }, fallback: true, ...debugInfo })
   }
 }
