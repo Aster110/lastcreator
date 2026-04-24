@@ -123,6 +123,24 @@ async function main() {
       console.log('\n⚠️  fallback 宠物（无 imageUrl），跳过 R2 验证')
     }
 
+    console.log('\n📍 Step 9: GET /api/world 验证世界状态')
+    const worldRes = await context.request.get(`${BASE}/api/world`)
+    const world = await worldRes.json()
+    console.log(`   末日第 ${world.dayCount} 天 / ${world.petCount} 个生命 / 复苏 ${world.totalHp}`)
+    if (world.dayCount < 1 || world.petCount < 1) throw new Error('world state invalid')
+
+    console.log('\n📍 Step 10: GET /api/pets/[id] 单只查询')
+    const singleRes = await context.request.get(`${BASE}/api/pets/${first.id}`)
+    console.log(`   /api/pets/${first.id} status: ${singleRes.status()}`)
+    const singleJson = await singleRes.json()
+    if (singleJson.pet?.id !== first.id) throw new Error('single pet id mismatch')
+
+    console.log('\n📍 Step 11: 打开 /me 页 验证档案渲染')
+    await page.goto(`${BASE}/me`, { waitUntil: 'networkidle', timeout: 20000 })
+    await page.waitForSelector('text=末日档案', { timeout: 5000 })
+    await page.waitForSelector(`text=${first.name}`, { timeout: 5000 })
+    console.log('   ✅ 档案渲染 + 新宠物在列表')
+
     console.log('\n\n✅ e2e 全部通过')
   } catch (err) {
     console.error('\n❌ e2e 失败:', err.message)
