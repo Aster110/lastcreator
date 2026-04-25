@@ -8,6 +8,7 @@ import { countDoneTasksForPet, listHistoryForPet } from '@/lib/repo/tasks'
 import ShareActions from '@/components/ui/ShareActions'
 import Countdown from '@/components/ui/Countdown'
 import TaskHistoryList from '@/components/ui/TaskHistoryList'
+import BackButton from '@/components/ui/BackButton'
 import type { DisplayTask } from '@/types/task'
 import type { ElementId } from '@/types/pet'
 
@@ -99,12 +100,11 @@ export default async function PublicPetPage({ params }: PageProps) {
       {/* Header */}
       <div className="relative flex items-center justify-between shrink-0">
         <div className="text-white/70 text-xs tracking-widest uppercase [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">神笔 · 末日档案</div>
-        <Link
-          href="/"
+        <BackButton
+          fallback="/gallery"
+          label="← 返回"
           className="text-white/85 text-xs hover:text-white transition-colors [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
-        >
-          返回主页 →
-        </Link>
+        />
       </div>
 
       <div className="relative flex-1 flex flex-col items-center gap-5 mt-8">

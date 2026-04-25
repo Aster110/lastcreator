@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import ShareActions from '@/components/ui/ShareActions'
 import TaskHistoryList from '@/components/ui/TaskHistoryList'
 import HeaderMenu, { type HeaderMenuItem } from '@/components/ui/HeaderMenu'
+import BackButton from '@/components/ui/BackButton'
 import { COPY } from '@/lib/copy/hints'
 import type { ElementId, FullPet } from '@/types/pet'
 import type { DisplayTask } from '@/types/task'
@@ -60,12 +61,11 @@ export default function MePetDetailClient({ pet, canSummonNext }: Props) {
 
       {/* Header */}
       <div className="relative flex items-center justify-between px-5 pt-10 pb-4 shrink-0">
-        <Link
-          href="/me"
+        <BackButton
+          fallback="/me"
+          label="←"
           className="w-10 h-10 flex items-center justify-center text-white text-xl [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]"
-        >
-          ←
-        </Link>
+        />
         <h1 className="text-white text-sm tracking-widest [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
           {pet.name}
         </h1>
