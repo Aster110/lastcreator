@@ -36,7 +36,7 @@ export default function TaskEntryCard({
         <p className="text-gray-500 text-xs mt-1">
           {dailyDone >= dailyMax ? COPY.task.resting : COPY.task.noneYet}
         </p>
-        <p className="text-gray-600 text-[10px] mt-2">{COPY.pet.lifeRefillHint}</p>
+        <p className="text-gray-600 text-[10px] mt-2">{COPY.pet.lifeRefillHint()}</p>
       </div>
     )
   }

@@ -124,7 +124,11 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
               onExpire={() => router.refresh()}
               staticLabel=""
             />
-            <p className="text-white text-[10px] mt-1">{COPY.pet.lifeRefillHint}</p>
+            {tasks && (
+              <p className="text-white text-[10px] mt-1">
+                {COPY.pet.lifeRefillHint(tasks.dailyDone, tasks.dailyMax)}
+              </p>
+            )}
           </div>
           <div className="text-right">
             <p className="text-white text-[10px] tracking-widest uppercase mb-0.5">诞生于</p>

@@ -10,7 +10,14 @@
 export const COPY = {
   pet: {
     lifeRemainingLabel: '剩余生命',
-    lifeRefillHint: '做任务可续命 · 每日最多 2 次',
+    /**
+     * v3.8.1: 函数化。带 done+max 显示动态配额，不带显示纯教育文案。
+     * 治 v3.6 改 MAX_DAILY_TASKS 漏改文案的踩坑。
+     */
+    lifeRefillHint: (done?: number, max?: number) =>
+      typeof done === 'number' && typeof max === 'number'
+        ? `做任务可续命 · 今日 ${done}/${max}`
+        : '做任务可续命',
     lifeUnknown: '寿命未知',
     deceased: '🕯️ 已安息',
     released: '🕊️ 已放生',
