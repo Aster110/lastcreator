@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ensureSubscribers } from '@/lib/events/subscribers'
 import { resolveUser } from '@/lib/identity'
-import { getTask, updateTaskStatus } from '@/lib/repo/tasks'
+import { getTask, updateTaskStatus, setActualKind } from '@/lib/repo/tasks'
 import { getFullPet } from '@/lib/repo/petState'
 import { pickVerifier } from '@/lib/game/tasks/verifier'
 import { applyReward, discountReward } from '@/lib/game/tasks/rewards'
 import { r2PutFromDataUrl } from '@/lib/storage/r2'
 import { emit } from '@/lib/events'
-import type { TaskProof, DisplayTask } from '@/types/task'
+import type { TaskProof, DisplayTask, TaskKind } from '@/types/task'
 
 /**
  * POST /api/tasks/:id/submit
@@ -24,13 +24,16 @@ export async function POST(
     return NextResponse.json({ error: 'invalid task id' }, { status: 400 })
   }
 
-  let body: { dataUrl?: string }
+  let body: { dataUrl?: string; actualKind?: TaskKind }
   try {
-    body = (await req.json()) as { dataUrl?: string }
+    body = (await req.json()) as { dataUrl?: string; actualKind?: TaskKind }
   } catch {
     return NextResponse.json({ error: 'bad json' }, { status: 400 })
   }
   if (!body.dataUrl) return NextResponse.json({ error: 'missing dataUrl' }, { status: 400 })
+  if (body.actualKind && body.actualKind !== 'photo' && body.actualKind !== 'doodle') {
+    return NextResponse.json({ error: 'invalid actualKind' }, { status: 400 })
+  }
 
   try {
     const { userId } = await resolveUser()
@@ -48,17 +51,21 @@ export async function POST(
       return NextResponse.json({ error: `pet is ${pet.status}` }, { status: 409 })
     }
 
+    // v3.9.1: 用户实际选的 kind（可与 task.kind 不同）；不传时按 task.kind 兜底
+    const actualKind: TaskKind = body.actualKind ?? task.kind
+
     // 1. 上传 proof 到 R2
     const r2Key = `tasks/${id}/proof.png`
     const { publicUrl } = await r2PutFromDataUrl(body.dataUrl, r2Key)
 
-    // 2. 标记 submitted
+    // 2. 标记 submitted + 写入 actualKind
     const submittedAt = Date.now()
+    await setActualKind(id, actualKind)
     await updateTaskStatus(id, 'submitted', { proofR2Key: r2Key, submittedAt })
     emit({ type: 'task.submitted', taskId: id, petId: task.petId, proofR2Key: r2Key, at: submittedAt })
 
-    // 3. 验证（Claude Vision or fallback）
-    const proof: TaskProof = { kind: task.kind, r2Key, imageUrl: publicUrl }
+    // 3. 验证（按 actualKind 走 PhotoProof/DoodleProof 验证逻辑）
+    const proof: TaskProof = { kind: actualKind, r2Key, imageUrl: publicUrl }
     const verifier = pickVerifier()
     const verdict = await verifier.verify(task, proof)
 
@@ -67,7 +74,7 @@ export async function POST(
       await updateTaskStatus(id, 'rejected', { aiVerdict: verdict, completedAt: rejectedAt })
       emit({ type: 'task.rejected', taskId: id, petId: task.petId, reason: verdict.reason, at: rejectedAt })
       return NextResponse.json({
-        task: toDisplay(id, task.kind, task.prompt, task.reward, 'rejected', task.expiresAt, r2Key, verdict),
+        task: toDisplay(id, task.kind, actualKind, task.prompt, task.reward, 'rejected', task.expiresAt, r2Key, verdict),
         verdict,
       })
     }
@@ -89,7 +96,7 @@ export async function POST(
     })
 
     return NextResponse.json({
-      task: toDisplay(id, task.kind, task.prompt, task.reward, 'done', task.expiresAt, r2Key, verdict),
+      task: toDisplay(id, task.kind, actualKind, task.prompt, task.reward, 'done', task.expiresAt, r2Key, verdict),
       verdict,
       state: newState,
       effectiveReward: effective,
@@ -103,7 +110,8 @@ export async function POST(
 
 function toDisplay(
   id: string,
-  kind: TaskProof['kind'],
+  kind: TaskKind,
+  actualKind: TaskKind | null,
   prompt: string,
   reward: DisplayTask['reward'],
   status: DisplayTask['status'],
@@ -111,5 +119,5 @@ function toDisplay(
   proofR2Key: string | null,
   aiVerdict: DisplayTask['aiVerdict'],
 ): DisplayTask {
-  return { id, kind, prompt, reward, status, expiresAt, proofR2Key, aiVerdict }
+  return { id, kind, actualKind, prompt, reward, status, expiresAt, proofR2Key, aiVerdict }
 }

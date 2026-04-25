@@ -5,6 +5,8 @@ interface TaskRow {
   id: string
   pet_id: string
   kind: string
+  /** v3.9.1: 用户实际提交的 kind（NULL 直到 submit） */
+  actual_kind: string | null
   prompt: string
   reward: string
   status: string
@@ -22,6 +24,7 @@ function rowToTask(r: TaskRow): Task {
     id: r.id,
     petId: r.pet_id,
     kind: r.kind as TaskKind,
+    actualKind: r.actual_kind ? (r.actual_kind as TaskKind) : null,
     prompt: r.prompt,
     verifyHint: r.verify_hint ?? '',
     reward: JSON.parse(r.reward),
@@ -127,6 +130,18 @@ export async function countCompletedToday(petId: string): Promise<number> {
     .bind(petId, startOfDay.getTime())
     .first<{ n: number }>()
   return row?.n ?? 0
+}
+
+/**
+ * v3.9.1: 写入用户实际提交的 kind。
+ * submit API 在 verify 之前调用一次；一个 task 只该写一次（pending → submitted）。
+ */
+export async function setActualKind(taskId: string, kind: TaskKind): Promise<void> {
+  const db = getDb()
+  await db
+    .prepare('UPDATE tasks SET actual_kind = ? WHERE id = ?')
+    .bind(kind, taskId)
+    .run()
 }
 
 /**

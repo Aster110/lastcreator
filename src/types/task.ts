@@ -30,7 +30,13 @@ export interface TaskVerdict {
 export interface Task {
   id: string
   petId: string
+  /**
+   * v3.9.1 起语义升级：模板期望的 kind（preferredKind 语义）。
+   * 实际提交的 kind 看 actualKind 字段；reject UI / verifier 都按 actualKind 走。
+   */
   kind: TaskKind
+  /** v3.9.1 新增：用户实际提交的 kind（NULL 直到 submit）。NULL 时按 kind 兜底。 */
+  actualKind?: TaskKind | null
   prompt: string
   verifyHint: string
   reward: Reward
@@ -45,7 +51,7 @@ export interface Task {
 
 export type DisplayTask = Pick<
   Task,
-  'id' | 'kind' | 'prompt' | 'reward' | 'status' | 'expiresAt' | 'proofR2Key' | 'aiVerdict'
+  'id' | 'kind' | 'actualKind' | 'prompt' | 'reward' | 'status' | 'expiresAt' | 'proofR2Key' | 'aiVerdict'
 >
 
 export interface TaskProof {

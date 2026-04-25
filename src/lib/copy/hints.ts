@@ -53,6 +53,9 @@ export const COPY = {
       return parts.join(' · ') || '神秘奖励'
     },
     acceptCTA: (kind: 'photo' | 'doodle') => (kind === 'photo' ? '📷 拍给它看' : '✏️ 画给它'),
+    /** v3.9.1: 用另一种 kind 代替的次 CTA（任务期望拍照 → 提供"用涂鸦代替"，反之亦然）*/
+    altKindCTA: (kind: 'photo' | 'doodle') =>
+      kind === 'photo' ? '✏️ 用涂鸦代替（不方便拍照）' : '📷 用拍照代替（出门拍）',
     cancelCTA: '再想想',
     verifyingInitial: (kind: 'photo' | 'doodle') =>
       `它在端详你的${kind === 'photo' ? '照片' : '涂鸦'}……`,

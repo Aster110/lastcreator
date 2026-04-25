@@ -15,7 +15,8 @@ const ELEMENT_BG: Record<ElementId, string> = {
 interface Props {
   task: DisplayTask
   element?: ElementId | null
-  onAccept(kind: 'photo' | 'doodle'): void
+  /** v3.9.1: 接收用户实际选的 kind（默认 task.kind = 模板期望，但用户可选另一种） */
+  onAccept(actualKind: 'photo' | 'doodle'): void
   onCancel(): void
   /** v3.8: 当天剩余 reroll 次数 */
   remainingRerolls?: number
@@ -103,6 +104,7 @@ export default function TaskIntro({
         className="absolute bottom-0 left-0 right-0 px-6 pb-10 pt-4 flex flex-col gap-2 anim-fade-up"
         style={{ animationDelay: '650ms' }}
       >
+        {/* v3.9.1: 主 CTA = task.kind（模板期望）；次 CTA = 另一种 kind 代替 */}
         <button
           onClick={() => onAccept(task.kind)}
           disabled={rerolling}
@@ -110,6 +112,14 @@ export default function TaskIntro({
         >
           {COPY.taskStage.acceptCTA(task.kind)}
           <span className="sr-only"> · {isPhoto ? '拍照提交' : '涂鸦提交'}</span>
+        </button>
+        {/* v3.9.1: 用另一种 kind 代替（次要权重，弱视觉） */}
+        <button
+          onClick={() => onAccept(isPhoto ? 'doodle' : 'photo')}
+          disabled={rerolling}
+          className="w-full h-11 rounded-full bg-white/10 border border-white/20 text-white/80 text-sm active:scale-[0.98] transition-transform disabled:opacity-50"
+        >
+          {COPY.taskStage.altKindCTA(task.kind)}
         </button>
         {canReroll && (
           <button

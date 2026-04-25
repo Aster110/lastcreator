@@ -72,6 +72,7 @@ function toDisplay(t: Task): DisplayTask {
   return {
     id: t.id,
     kind: t.kind,
+    actualKind: t.actualKind ?? null,
     prompt: t.prompt,
     reward: t.reward,
     status: t.status,

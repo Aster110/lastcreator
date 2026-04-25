@@ -95,7 +95,8 @@ export default function TaskStage({
       const res = await fetch(`/api/tasks/${task.id}/submit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataUrl }),
+        // v3.9.1: 把用户实际选的 kind（proofKind）一起传给后端，verifier 按它走
+        body: JSON.stringify({ dataUrl, actualKind: proofKind ?? task.kind }),
       })
       const data = (await res.json()) as SubmitResponse
       setSubmitResp(data)
