@@ -9,7 +9,8 @@
  * 这些都是纯函数，完整单测覆盖（见 taskPrompt.test.ts）。
  * AI 调用在 `lib/ai/taskPrompt.ts`。
  */
-import type { FullPet } from '@/types/pet'
+import type { FullPet, PetStage } from '@/types/pet'
+import { stageGte } from '@/lib/game/stage'
 import {
   ALL_TEMPLATES,
   ELEMENT_TEMPLATES,
@@ -106,12 +107,19 @@ function pickWeighted<T>(pool: T[], weight: (t: T) => number, rand: () => number
  *
  * rand 参数允许测试注入确定性随机源（默认 Math.random）
  */
+function passesStage(t: TaskTemplate, petStage: PetStage | undefined): boolean {
+  if (!t.minStage) return true
+  if (!petStage) return true // 老数据无 stage（v3 之前）→ 不限
+  return stageGte(petStage, t.minStage)
+}
+
 export function pickTemplateForPet(
-  pet: Pick<FullPet, 'element'>,
+  pet: Pick<FullPet, 'element' | 'stage'>,
   rand: () => number = Math.random,
   opts: PickOptions = {},
 ): TaskTemplate {
   const allowOutdoor = opts.outdoorAllowed !== false && opts.nowSlot !== 'night'
+  const petStage = pet.stage
 
   // 1. element 分桶
   let pool: TaskTemplate[]
@@ -128,13 +136,19 @@ export function pickTemplateForPet(
   }
   if (pool.length === 0) pool = ALL_TEMPLATES
 
+  // v3.9.4: stage filter（minStage <= pet.stage 才出）；过滤后空 → 不过滤兜底
+  const stageFiltered = pool.filter(t => passesStage(t, petStage))
+  if (stageFiltered.length > 0) pool = stageFiltered
+
   // 2. context 加权抽样
   const w = (t: TaskTemplate) => contextWeight(t.context, allowOutdoor)
   const totalW = pool.reduce((s, t) => s + w(t), 0)
 
-  // 兜底：pool 全是 outdoor 但 outdoor 被禁 → 从 ALL_TEMPLATES 取非 outdoor
+  // 兜底：pool 全是 outdoor 但 outdoor 被禁 → 从 ALL_TEMPLATES 取非 outdoor + stage filter
   if (totalW <= 0) {
-    const fallback = ALL_TEMPLATES.filter(t => t.context !== 'outdoor')
+    const fallback = ALL_TEMPLATES.filter(
+      t => t.context !== 'outdoor' && passesStage(t, petStage),
+    )
     const safePool = fallback.length > 0 ? fallback : ALL_TEMPLATES
     return safePool[Math.floor(rand() * safePool.length)]
   }

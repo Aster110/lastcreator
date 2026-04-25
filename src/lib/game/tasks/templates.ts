@@ -1,6 +1,6 @@
 import { TASK_DEFAULT_EXPIRES_MS } from '@/lib/game/rules'
 import type { TaskKind, Reward } from '@/types/task'
-import type { ElementId } from '@/types/pet'
+import type { ElementId, PetStage } from '@/types/pet'
 
 /**
  * v3.8 Template shape
@@ -21,6 +21,8 @@ export interface TaskTemplate {
   kind: TaskKind
   element: ElementId | null           // null = 通用池；其他 = 该元素专属
   context: TaskContext                // v3.8 情境标签
+  /** v3.9.4: 解锁该模板的最低阶段；缺省 = 幼年（所有阶段都能出） */
+  minStage?: PetStage
   promptSkeleton: string              // 含 {slot} 占位符，如 "找 {subject}"
   slots: string[]                     // 要填的 slot 名
   defaultPrompt: string               // AI 填失败时直接用

@@ -1,6 +1,7 @@
 import { getState, patchPetState } from '@/lib/repo/petState'
 import { emit } from '@/lib/events'
 import { computeExtendedExpiresAt } from '@/lib/game/lifecycle'
+import { shouldUpgrade } from '@/lib/game/stage'
 import type { Reward } from '@/types/task'
 import type { PetState, PetStatePatch } from '@/types/pet'
 
@@ -38,8 +39,18 @@ export async function applyReward(petId: string, effectiveReward: Reward): Promi
   if (!cur) throw new Error(`applyReward: no state for ${petId}`)
 
   const patch: PetStatePatch = {}
-  if (effectiveReward.exp !== undefined) patch.exp = cur.exp + effectiveReward.exp
+  let newExp = cur.exp
+  if (effectiveReward.exp !== undefined) {
+    newExp = cur.exp + effectiveReward.exp
+    patch.exp = newExp
+  }
   if (effectiveReward.mood !== undefined) patch.mood = effectiveReward.mood
+
+  // v3.9.4: stage 升级判定（exp 跨阈值时同步写 stage 字段）
+  const upgrade = shouldUpgrade(cur.exp, newExp)
+  if (upgrade.upgraded && upgrade.to) {
+    patch.stage = upgrade.to
+  }
 
   // 续命：只对 alive 有效；死/放生的宠物不续
   let lifeExtendedMs = 0
@@ -52,5 +63,9 @@ export async function applyReward(petId: string, effectiveReward: Reward): Promi
 
   const next = await patchPetState(petId, patch)
   emit({ type: 'state.changed', petId, delta: patch, at: Date.now() })
+  // v3.9.4: 升级事件——UI 监听用作动画/通知（v4 接 stage 任务池切换）
+  if (upgrade.upgraded && upgrade.from && upgrade.to) {
+    emit({ type: 'pet.leveled', petId, from: upgrade.from, to: upgrade.to, at: Date.now() })
+  }
   return { state: next, lifeExtendedMs }
 }
