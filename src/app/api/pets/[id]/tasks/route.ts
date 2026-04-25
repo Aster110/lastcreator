@@ -4,15 +4,21 @@ import { resolveUser } from '@/lib/identity'
 import { getFullPet } from '@/lib/repo/petState'
 import { randomAssigner } from '@/lib/game/tasks/assigner'
 import { computeWorld } from '@/lib/game/world'
-import { countCompletedToday, listHistoryForPet } from '@/lib/repo/tasks'
-import { MAX_DAILY_TASKS } from '@/lib/game/rules'
+import { nowSlotFromDate } from '@/lib/game/tasks/taskPrompt'
+import {
+  countCompletedToday,
+  countRerollsTodayByOwner,
+  listHistoryForPet,
+} from '@/lib/repo/tasks'
+import { MAX_DAILY_TASKS, MAX_DAILY_REROLLS } from '@/lib/game/rules'
 import type { DisplayTask, Task } from '@/types/task'
 
 /**
  * GET /api/pets/:id/tasks
- * 查/派 pet 的当前任务 + 返回最近 20 条历史。幂等，lazy 派发。
- * 只有 owner 能访问（否则任何人进 /me/[id] 都会触发派单）。
- * pet 非 alive 时不派新任务，但仍返回 history。
+ * 查/派 pet 的当前任务 + 返回最近 20 条历史 + v3.8 reroll 剩余次数。
+ * 只有 owner 能访问。pet 非 alive 时不派新任务，但仍返回 history。
+ *
+ * v3.8: outdoorAllowed 自适应——当天该 owner 已 reroll 过任何一次，本次派单 outdoor 权重 → 0。
  */
 export async function GET(
   _req: Request,
@@ -29,11 +35,16 @@ export async function GET(
     if (!pet) return NextResponse.json({ error: 'not found' }, { status: 404 })
     if (pet.ownerId !== userId) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
 
-    // v3.7: assigner 需要 pet 对象和 world 状态
+    const rerollsUsed = await countRerollsTodayByOwner(userId)
+    const remainingRerolls = Math.max(0, MAX_DAILY_REROLLS - rerollsUsed)
+
     let task = null
     if (pet.status === 'alive') {
       const world = await computeWorld()
-      task = await randomAssigner.getOrAssign(pet, world)
+      task = await randomAssigner.getOrAssign(pet, world, {
+        nowSlot: nowSlotFromDate(),
+        outdoorAllowed: rerollsUsed === 0,
+      })
     }
     const [dailyDone, historyRaw] = await Promise.all([
       countCompletedToday(id),
@@ -48,6 +59,8 @@ export async function GET(
       dailyDone,
       dailyMax: MAX_DAILY_TASKS,
       history,
+      remainingRerolls,
+      maxRerolls: MAX_DAILY_REROLLS,
     })
   } catch (err) {
     console.error('[/api/pets/[id]/tasks]', err)

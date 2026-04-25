@@ -56,6 +56,10 @@ export const COPY = {
     rejectTitle: '它没认出这是它想要的',
     rejectRetry: '换一个任务',
     rejectClose: '先关掉',
+    // v3.8: TaskIntro 内"换一个" CTA + 加载状态
+    rerollCTA: (remaining: number) => `🔄 换一个（剩 ${remaining}）`,
+    rerollLoading: '换一个中…',
+    rerollFailed: '换不到了，先看看现在这个吧',
   },
   emptyNest: {
     titleWithLast: (name: string) => `${name} 离开了……`,

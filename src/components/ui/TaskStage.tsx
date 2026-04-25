@@ -23,6 +23,13 @@ interface Props {
    * 仅 pass 时触发；reject 不调。
    */
   onCompleted(next: { hp: number; exp: number; lifeExpiresAt: number | null }): void
+  /** v3.8: 当天剩余 reroll 次数 */
+  remainingRerolls?: number
+  /**
+   * v3.8: 父组件应该（1）调 reroll API（2）拿到新 task 后用它替换 task prop。
+   * 这里只负责"按钮 → 触发"，不做 fetch（避免重复 fetch 逻辑）。
+   */
+  onReroll?(currentTaskId: string): Promise<void>
 }
 
 interface SubmitResponse {
@@ -35,26 +42,30 @@ interface SubmitResponse {
 
 /**
  * v3.5 任务剧场 · 四幕状态机容器
- *
  * intro → challenge(photo/doodle) → verifying → result(pass/reject)
  *
- * 关闭规则：
- * - intro / result：允许关闭
- * - challenge / verifying：禁用关闭（防误触，submit 进行中）
- *
- * state bug 修复：
- * - submit response 含 state.lifeExpiresAt（v3.2 已有），通过 onCompleted 透传父组件
+ * v3.8: TaskIntro 加"换一个" CTA。reroll 流程：
+ * 1. 用户点 onReroll → setRerolling(true)
+ * 2. 父组件 onReroll(currentTaskId) 内部走 API → 替换 task prop
+ * 3. setRerolling(false)；TaskIntro 拿到新 task prop，自动 re-render
  */
-export default function TaskStage({ open, task, pet, onClose, onCompleted }: Props) {
+export default function TaskStage({
+  open,
+  task,
+  pet,
+  onClose,
+  onCompleted,
+  remainingRerolls,
+  onReroll,
+}: Props) {
   const [phase, setPhase] = useState<Phase>('intro')
-  // 进入 challenge 之前捕获旧的 lifeExpiresAt，给结果幕做 tween 动画素材
   const prevExpiresAtRef = useRef<number | null>(pet.lifeExpiresAt ?? null)
   const [submitResp, setSubmitResp] = useState<SubmitResponse | null>(null)
   const [proofKind, setProofKind] = useState<'photo' | 'doodle' | null>(null)
+  const [rerolling, setRerolling] = useState(false)
 
   if (!open) return null
   if (!task) {
-    // 理论上入口卡会处理 task=null，这里保险兜底
     onClose()
     return null
   }
@@ -63,6 +74,19 @@ export default function TaskStage({ open, task, pet, onClose, onCompleted }: Pro
     prevExpiresAtRef.current = pet.lifeExpiresAt ?? null
     setProofKind(kind)
     setPhase('challenge')
+  }
+
+  const handleReroll = async () => {
+    if (!onReroll || rerolling) return
+    setRerolling(true)
+    try {
+      await onReroll(task.id)
+    } catch (err) {
+      console.error('[TaskStage] reroll failed', err)
+      haptic('warn')
+    } finally {
+      setRerolling(false)
+    }
   }
 
   const handleSubmit = async (dataUrl: string) => {
@@ -76,7 +100,6 @@ export default function TaskStage({ open, task, pet, onClose, onCompleted }: Pro
       const data = (await res.json()) as SubmitResponse
       setSubmitResp(data)
       setPhase('result')
-      // 成功反馈（secondary）
       if (data.verdict?.pass && data.state) {
         const minutes = Math.round((data.lifeExtendedMs ?? 0) / 60_000)
         const exp = data.effectiveReward?.exp
@@ -107,7 +130,6 @@ export default function TaskStage({ open, task, pet, onClose, onCompleted }: Pro
         lifeExpiresAt: submitResp.state.lifeExpiresAt ?? null,
       })
     }
-    // 重置内部状态（下次打开从 intro 开始）
     setPhase('intro')
     setSubmitResp(null)
     setProofKind(null)
@@ -115,8 +137,6 @@ export default function TaskStage({ open, task, pet, onClose, onCompleted }: Pro
   }
 
   const handleResultRetry = () => {
-    // P1 reroll 接口尚未接入；当前 RejectLayer 内实际按钮隐藏。
-    // 保留此回调占位，接入后回 intro 加载新 task。
     handleResultClose()
   }
 
@@ -128,6 +148,9 @@ export default function TaskStage({ open, task, pet, onClose, onCompleted }: Pro
         element={pet.element ?? null}
         onAccept={handleAccept}
         onCancel={onClose}
+        remainingRerolls={remainingRerolls}
+        onReroll={onReroll ? handleReroll : undefined}
+        rerolling={rerolling}
       />
     )
   }
@@ -172,7 +195,6 @@ export default function TaskStage({ open, task, pet, onClose, onCompleted }: Pro
 function VerifyingLayer({ task, pet }: { task: DisplayTask; pet: FullPet }) {
   return (
     <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-8 px-6">
-      {/* 宠物图 breathe */}
       <div className="w-40 h-40 rounded-2xl bg-gray-800 overflow-hidden anim-breathe">
         {pet.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element

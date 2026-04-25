@@ -1,7 +1,7 @@
 import { prefixedId } from '@/lib/db/nanoid'
 import { createTask, findActiveTaskForPet, countCompletedToday } from '@/lib/repo/tasks'
 import { MAX_DAILY_TASKS } from '@/lib/game/rules'
-import { pickTemplateForPet, buildPromptContext } from './taskPrompt'
+import { pickTemplateForPet, buildPromptContext, type PickOptions } from './taskPrompt'
 import { taskPromptAI } from '@/lib/ai/taskPrompt'
 import { emit } from '@/lib/events'
 import type { Task } from '@/types/task'
@@ -15,14 +15,20 @@ export interface TaskAssigner {
   /**
    * 若已有 active task 直接返回；否则按策略派发；达上限返回 null。
    * v3.7: 需要 pet 完整对象（for element 分桶 + AI 填空）+ world 状态
+   * v3.8: 可选 opts 透传给 pickTemplateForPet（nowSlot / outdoorAllowed）
+   *       reroll 路径先把旧 task 标 cancelled 再调本方法，自然走"派新"分支。
    */
-  getOrAssign(pet: FullPet, world: { dayCount: number }): Promise<Task | null>
+  getOrAssign(
+    pet: FullPet,
+    world: { dayCount: number },
+    opts?: PickOptions,
+  ): Promise<Task | null>
 }
 
 /** 工厂：便于测试注入 mock AI */
 export function makeAssigner(ai: AIFill = taskPromptAI): TaskAssigner {
   return {
-    async getOrAssign(pet, world) {
+    async getOrAssign(pet, world, opts = {}) {
       // 1. 已有 active → 返回
       const existing = await findActiveTaskForPet(pet.id)
       if (existing) return existing
@@ -31,8 +37,8 @@ export function makeAssigner(ai: AIFill = taskPromptAI): TaskAssigner {
       const done = await countCompletedToday(pet.id)
       if (done >= MAX_DAILY_TASKS) return null
 
-      // 3. 按 element 分桶选模板
-      const template: TaskTemplate = pickTemplateForPet(pet)
+      // 3. 按 element 分桶 + context 加权选模板
+      const template: TaskTemplate = pickTemplateForPet(pet, Math.random, opts)
 
       // 4. 尝试 AI 填空；失败 → fallback 到 defaultPrompt
       let prompt = template.defaultPrompt

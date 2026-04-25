@@ -39,7 +39,7 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
   const [stageOpen, setStageOpen] = useState(false)
   const [expBump, setExpBump] = useState(0) // 递增计数器触发 flyUp 动画重放
   const router = useRouter()
-  const { data: tasks, loading, refresh } = usePetTasks(pet.id, true)
+  const { data: tasks, loading, refresh, applyReroll } = usePetTasks(pet.id, true)
   const { release, releasing } = usePetActions(pet.id)
 
   // v3.5 修 #4：结果幕关闭时一次性写入 state，倒计时立即反映新值
@@ -47,6 +47,16 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
     setPet(p => ({ ...p, hp: next.hp, exp: next.exp, lifeExpiresAt: next.lifeExpiresAt }))
     setExpBump(n => n + 1) // 触发 EXP 飞字 ← 修 #5
     void refresh()
+  }
+
+  // v3.8: 换一个任务
+  const handleReroll = async (currentTaskId: string) => {
+    const r = await fetch(`/api/tasks/${currentTaskId}/reroll`, { method: 'POST' })
+    if (!r.ok) {
+      throw new Error(`reroll ${r.status}`)
+    }
+    const j = (await r.json()) as { task: import('@/types/task').DisplayTask; remainingRerolls: number }
+    applyReroll(j.task, j.remainingRerolls)
   }
 
   const handleRelease = async () => {
@@ -138,6 +148,8 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
               dailyDone={tasks.dailyDone}
               dailyMax={tasks.dailyMax}
               element={pet.element ?? null}
+              remainingRerolls={tasks.remainingRerolls}
+              maxRerolls={tasks.maxRerolls}
               onOpen={() => setStageOpen(true)}
             />
           )}
@@ -206,6 +218,8 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
         pet={pet}
         onClose={() => setStageOpen(false)}
         onCompleted={handleCompleted}
+        remainingRerolls={tasks?.remainingRerolls}
+        onReroll={handleReroll}
       />
     </div>
   )

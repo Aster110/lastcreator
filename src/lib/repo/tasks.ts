@@ -129,6 +129,41 @@ export async function countCompletedToday(petId: string): Promise<number> {
   return row?.n ?? 0
 }
 
+/**
+ * v3.8: 把指定任务标记为"被 reroll 取消"。
+ * 不删行，留作审计 / 计数。
+ */
+export async function cancelTaskAsReroll(taskId: string): Promise<void> {
+  const db = getDb()
+  await db
+    .prepare(
+      "UPDATE tasks SET status = 'cancelled', cancelled_reason = 'reroll' WHERE id = ?",
+    )
+    .bind(taskId)
+    .run()
+}
+
+/**
+ * v3.8: 当天该 owner 的 reroll 用量。
+ * JOIN pets 取 owner_id 维度（跨该 owner 的所有 pet 都计入；新放生再召唤的不重置配额）。
+ */
+export async function countRerollsTodayByOwner(ownerId: string): Promise<number> {
+  const db = getDb()
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) as n FROM tasks t
+         JOIN pets p ON t.pet_id = p.id
+         WHERE p.owner_id = ?
+           AND t.cancelled_reason = 'reroll'
+           AND t.created_at >= ?`,
+    )
+    .bind(ownerId, startOfDay.getTime())
+    .first<{ n: number }>()
+  return row?.n ?? 0
+}
+
 export async function updateTaskStatus(
   id: string,
   status: TaskStatus,

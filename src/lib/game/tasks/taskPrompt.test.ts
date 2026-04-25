@@ -1,8 +1,11 @@
 /**
- * v3.7 taskPrompt 纯函数测试
+ * v3.8 taskPrompt 纯函数测试
  * - nowSlotFromDate 四档划分
  * - buildPromptContext 返正确 shape
- * - pickTemplateForPet 按 element 分桶（70% 元素 / 30% 通用 / 空桶 fallback）
+ * - pickTemplateForPet 按 element 分桶 + v3.8 context 加权
+ *   * nowSlot=night → 0% outdoor
+ *   * outdoorAllowed=false → 0% outdoor
+ *   * 默认（白天 + allowed）outdoor 占比合理 (> 0)
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -66,6 +69,7 @@ describe('buildPromptContext', () => {
       id: 't1',
       kind: 'photo' as const,
       element: 'ruins' as const,
+      context: 'any' as const,
       promptSkeleton: '找 {subject}',
       slots: ['subject'],
       defaultPrompt: '找食物',
@@ -114,5 +118,50 @@ describe('pickTemplateForPet', () => {
       const t = pickTemplateForPet(pet)
       expect(t.element).toBeNull()
     }
+  })
+})
+
+describe('v3.8 pickTemplateForPet context filtering', () => {
+  it('nowSlot=night → 0% outdoor templates', () => {
+    const pet = mockPet({ element: 'sky' })  // sky 池含 outdoor，最易暴露 bug
+    for (let i = 0; i < 500; i++) {
+      const t = pickTemplateForPet(pet, Math.random, { nowSlot: 'night' })
+      expect(t.context, `iteration ${i}, template ${t.id}`).not.toBe('outdoor')
+    }
+  })
+
+  it('outdoorAllowed=false → 0% outdoor templates', () => {
+    const pet = mockPet({ element: 'sky' })
+    for (let i = 0; i < 500; i++) {
+      const t = pickTemplateForPet(pet, Math.random, { outdoorAllowed: false })
+      expect(t.context, `iteration ${i}, template ${t.id}`).not.toBe('outdoor')
+    }
+  })
+
+  it('default (daytime, allowed) → outdoor occurs but not majority', () => {
+    const pet = mockPet({ element: 'sky' })
+    let outdoor = 0
+    let total = 0
+    for (let i = 0; i < 2000; i++) {
+      const t = pickTemplateForPet(pet, Math.random, { nowSlot: 'morning' })
+      if (t.context === 'outdoor') outdoor++
+      total++
+    }
+    const ratio = outdoor / total
+    // sky 池含 outdoor 较多，但加权 0.4 + generic 池稀释，期望 < 50%
+    expect(ratio, `outdoor ratio = ${ratio}`).toBeGreaterThan(0)
+    expect(ratio, `outdoor ratio = ${ratio}`).toBeLessThan(0.5)
+  })
+
+  it('null-element pet 默认 outdoor 占比 < 20%（generic 池只有 1 条 outdoor）', () => {
+    const pet = mockPet({ element: null })
+    let outdoor = 0
+    const N = 2000
+    for (let i = 0; i < N; i++) {
+      const t = pickTemplateForPet(pet, Math.random, { nowSlot: 'morning' })
+      if (t.context === 'outdoor') outdoor++
+    }
+    const ratio = outdoor / N
+    expect(ratio, `outdoor ratio = ${ratio}`).toBeLessThan(0.2)
   })
 })

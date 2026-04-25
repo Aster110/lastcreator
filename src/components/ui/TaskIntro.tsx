@@ -17,15 +17,32 @@ interface Props {
   element?: ElementId | null
   onAccept(kind: 'photo' | 'doodle'): void
   onCancel(): void
+  /** v3.8: 当天剩余 reroll 次数 */
+  remainingRerolls?: number
+  /** v3.8: 触发"换一个"；外层调 reroll API + 替换 task prop */
+  onReroll?(): void
+  /** v3.8: reroll 进行中时禁用按钮 */
+  rerolling?: boolean
 }
 
 /**
  * v3.5 任务剧场 · 第一幕：接受任务。
+ * v3.8: 加"换一个 (剩 N)" CTA；剩 0 时不显示该按钮。
  * 动画节奏见 14-任务剧场与单宠范式.md §附录 A
  */
-export default function TaskIntro({ task, element, onAccept, onCancel }: Props) {
+export default function TaskIntro({
+  task,
+  element,
+  onAccept,
+  onCancel,
+  remainingRerolls,
+  onReroll,
+  rerolling,
+}: Props) {
   const bgUrl = element ? ELEMENT_BG[element] : '/daily-bg.jpg'
   const isPhoto = task.kind === 'photo'
+  const canReroll =
+    typeof remainingRerolls === 'number' && remainingRerolls > 0 && !!onReroll
 
   return (
     <div
@@ -88,14 +105,27 @@ export default function TaskIntro({ task, element, onAccept, onCancel }: Props) 
       >
         <button
           onClick={() => onAccept(task.kind)}
-          className="w-full h-14 rounded-full bg-white text-gray-900 text-base font-semibold active:scale-[0.98] transition-transform anim-breathe"
+          disabled={rerolling}
+          className="w-full h-14 rounded-full bg-white text-gray-900 text-base font-semibold active:scale-[0.98] transition-transform anim-breathe disabled:opacity-50 disabled:anim-none"
         >
           {COPY.taskStage.acceptCTA(task.kind)}
           <span className="sr-only"> · {isPhoto ? '拍照提交' : '涂鸦提交'}</span>
         </button>
+        {canReroll && (
+          <button
+            onClick={onReroll}
+            disabled={rerolling}
+            className="w-full h-11 rounded-full bg-white/10 border border-white/20 text-white/90 text-sm active:scale-[0.98] transition-transform disabled:opacity-50"
+          >
+            {rerolling
+              ? COPY.taskStage.rerollLoading
+              : COPY.taskStage.rerollCTA(remainingRerolls)}
+          </button>
+        )}
         <button
           onClick={onCancel}
-          className="w-full h-10 text-white/70 text-sm active:scale-[0.98] transition-transform"
+          disabled={rerolling}
+          className="w-full h-10 text-white/70 text-sm active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           {COPY.taskStage.cancelCTA}
         </button>

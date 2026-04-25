@@ -1,8 +1,10 @@
 /**
- * v3.7 模板扩展测试
- * - 每 element 至少 3 条专属模板（6 元素 × 3 = 18 条起步）
- * - 保留通用池（element = null）作为 fallback
- * - 每条模板必备字段：id, kind, promptSkeleton, slots, defaultPrompt, verifyHint, reward, expiresInMs
+ * v3.8 模板扩展测试
+ * - v3.7：每 element 至少 3 条；v3.8 升到 4 条（每元素 2 photo + 2 doodle）
+ * - v3.8：加 context 字段（outdoor/indoor/any）
+ * - 所有 doodle = indoor（涂鸦天然不出门）
+ * - outdoor 总数 ≤ 6（避免户外占比过高）
+ * - indoor 总数 ≥ 15（保证室内用户够用）
  */
 import { describe, it, expect } from 'vitest'
 import {
@@ -14,16 +16,17 @@ import {
 import type { ElementId } from '@/types/pet'
 
 const ELEMENTS: ElementId[] = ['ruins', 'fire', 'water', 'ice', 'dark', 'sky']
+const VALID_CONTEXTS = ['outdoor', 'indoor', 'any'] as const
 
-describe('v3.7 templates structure', () => {
+describe('v3.8 templates structure', () => {
   it('ALL_TEMPLATES = ELEMENT_TEMPLATES + GENERIC_TEMPLATES', () => {
     expect(ALL_TEMPLATES.length).toBe(ELEMENT_TEMPLATES.length + GENERIC_TEMPLATES.length)
   })
 
-  it('every element has at least 3 templates', () => {
+  it('v3.8: every element has at least 4 templates (2 photo + 2 doodle)', () => {
     for (const el of ELEMENTS) {
       const count = ELEMENT_TEMPLATES.filter(t => t.element === el).length
-      expect(count, `element ${el}`).toBeGreaterThanOrEqual(3)
+      expect(count, `element ${el}`).toBeGreaterThanOrEqual(4)
     }
   })
 
@@ -66,6 +69,39 @@ describe('v3.7 templates structure', () => {
   it('v3.6 balance preserved: all template minutes >= 300', () => {
     for (const t of ALL_TEMPLATES) {
       expect(t.reward.minutes ?? 0, `template ${t.id}`).toBeGreaterThanOrEqual(300)
+    }
+  })
+})
+
+describe('v3.8 context field', () => {
+  it('every template has context ∈ {outdoor, indoor, any}', () => {
+    for (const t of ALL_TEMPLATES) {
+      expect(VALID_CONTEXTS, `template ${t.id} context=${t.context}`).toContain(t.context)
+    }
+  })
+
+  it('every doodle has context = indoor (涂鸦天然不出门)', () => {
+    const doodles = ALL_TEMPLATES.filter(t => t.kind === 'doodle')
+    expect(doodles.length).toBeGreaterThan(0)
+    for (const t of doodles) {
+      expect(t.context, `doodle ${t.id}`).toBe('indoor')
+    }
+  })
+
+  it('outdoor total <= 6 (避免户外占比过高)', () => {
+    const outdoor = ALL_TEMPLATES.filter(t => t.context === 'outdoor')
+    expect(outdoor.length).toBeLessThanOrEqual(6)
+  })
+
+  it('indoor total >= 15 (保证室内用户够用)', () => {
+    const indoor = ALL_TEMPLATES.filter(t => t.context === 'indoor')
+    expect(indoor.length).toBeGreaterThanOrEqual(15)
+  })
+
+  it('every element has at least 1 indoor template', () => {
+    for (const el of ELEMENTS) {
+      const indoor = ELEMENT_TEMPLATES.filter(t => t.element === el && t.context === 'indoor')
+      expect(indoor.length, `element ${el} indoor`).toBeGreaterThanOrEqual(1)
     }
   })
 })

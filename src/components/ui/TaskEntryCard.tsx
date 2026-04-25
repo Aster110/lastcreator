@@ -8,15 +8,27 @@ interface Props {
   dailyDone: number
   dailyMax: number
   element?: ElementId | null
+  /** v3.8: 当天剩余 reroll 次数（owner 维度） */
+  remainingRerolls?: number
+  /** v3.8: reroll 上限（默认 3） */
+  maxRerolls?: number
   onOpen(): void
 }
 
 /**
- * v3.5: 主宠页的任务入口卡。
- * 点击打开全屏 TaskStage。
- * 视觉：element 色调暗化底 + prompt 摘要 + 右侧 → + 进度
+ * v3.5: 主宠页的任务入口卡。点击打开全屏 TaskStage。
+ * v3.8: 右上角增加"重投 N/M"小字，告知用户卡顿时可换。
  */
-export default function TaskEntryCard({ task, dailyDone, dailyMax, onOpen }: Props) {
+export default function TaskEntryCard({
+  task,
+  dailyDone,
+  dailyMax,
+  remainingRerolls,
+  maxRerolls,
+  onOpen,
+}: Props) {
+  const showReroll = task && typeof remainingRerolls === 'number' && typeof maxRerolls === 'number'
+
   if (!task) {
     return (
       <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-4">
@@ -34,8 +46,13 @@ export default function TaskEntryCard({ task, dailyDone, dailyMax, onOpen }: Pro
     <button
       type="button"
       onClick={onOpen}
-      className="w-full text-left rounded-2xl bg-gray-900/70 border border-gray-700 px-4 py-4 active:scale-[0.99] transition-transform hover:border-gray-500"
+      className="w-full text-left rounded-2xl bg-gray-900/70 border border-gray-700 px-4 py-4 active:scale-[0.99] transition-transform hover:border-gray-500 relative"
     >
+      {showReroll && (
+        <span className="absolute top-2.5 right-3 text-gray-500 text-[10px] tabular-nums">
+          重投 {remainingRerolls}/{maxRerolls}
+        </span>
+      )}
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-gray-400 text-[10px] tracking-widest uppercase mb-1.5">

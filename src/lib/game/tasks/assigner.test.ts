@@ -134,3 +134,62 @@ describe('assigner · AI fill integration', () => {
     }
   })
 })
+
+describe('v3.8 assigner · PickOptions context filtering', () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    warnSpy.mockRestore()
+  })
+
+  it('outdoorAllowed=false → never picks outdoor template (sky pet)', async () => {
+    const mockAI = {
+      async fill(ctx: { template: { id: string; context: string } }): Promise<FilledTask> {
+        return {
+          prompt: `[id:${ctx.template.id}|ctx:${ctx.template.context}]`,
+          verifyHint: '_',
+        }
+      },
+    }
+    const assigner = makeAssigner(mockAI)
+    const skyPet = { ...mockPet(), element: 'sky' as const } as FullPet
+
+    for (let i = 0; i < 50; i++) {
+      const task = await assigner.getOrAssign(
+        skyPet,
+        { dayCount: 1 },
+        { outdoorAllowed: false },
+      )
+      expect(task).toBeTruthy()
+      const m = task!.prompt.match(/\|ctx:(\w+)\]/)
+      expect(m, `prompt=${task!.prompt}`).toBeTruthy()
+      expect(m![1]).not.toBe('outdoor')
+    }
+  })
+
+  it('nowSlot=night → never picks outdoor template', async () => {
+    const mockAI = {
+      async fill(ctx: { template: { id: string; context: string } }): Promise<FilledTask> {
+        return {
+          prompt: `[id:${ctx.template.id}|ctx:${ctx.template.context}]`,
+          verifyHint: '_',
+        }
+      },
+    }
+    const assigner = makeAssigner(mockAI)
+    const skyPet = { ...mockPet(), element: 'sky' as const } as FullPet
+
+    for (let i = 0; i < 50; i++) {
+      const task = await assigner.getOrAssign(
+        skyPet,
+        { dayCount: 1 },
+        { nowSlot: 'night' },
+      )
+      expect(task).toBeTruthy()
+      const m = task!.prompt.match(/\|ctx:(\w+)\]/)
+      expect(m![1]).not.toBe('outdoor')
+    }
+  })
+})

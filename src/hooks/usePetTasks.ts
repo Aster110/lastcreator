@@ -8,11 +8,15 @@ export interface TasksPayload {
   dailyMax: number
   /** v3.2：任务履历（已完成/拒绝/过期），倒序，最多 20 条 */
   history: DisplayTask[]
+  /** v3.8: reroll 剩余次数（owner 维度，自然日 0 点重置） */
+  remainingRerolls: number
+  /** v3.8: reroll 上限（默认 3） */
+  maxRerolls: number
 }
 
 /**
- * 拉取单只宠物的 active task + 今日计数。
- * 返回 { data, loading, refresh }，组件不感知 fetch。
+ * 拉取单只宠物的 active task + 今日计数 + reroll 剩余次数。
+ * 返回 { data, loading, refresh, applyReroll }，组件不感知 fetch。
  *
  * `enabled` = false 时不请求（比如宠物已放生/死）。
  */
@@ -33,6 +37,11 @@ export function usePetTasks(petId: string, enabled = true) {
     }
   }, [petId, enabled])
 
+  /** v3.8: reroll 成功后用新 task + 剩余次数原地更新，不走网络 refresh */
+  const applyReroll = useCallback((task: DisplayTask, remainingRerolls: number) => {
+    setData(prev => (prev ? { ...prev, active: task, remainingRerolls } : prev))
+  }, [])
+
   useEffect(() => {
     if (!enabled) {
       setData(null)
@@ -43,5 +52,5 @@ export function usePetTasks(petId: string, enabled = true) {
     void refresh()
   }, [petId, enabled, refresh])
 
-  return { data, loading, refresh }
+  return { data, loading, refresh, applyReroll }
 }
