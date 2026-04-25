@@ -5,6 +5,7 @@ import ShareActions from '@/components/ui/ShareActions'
 import TaskHistoryList from '@/components/ui/TaskHistoryList'
 import HeaderMenu, { type HeaderMenuItem } from '@/components/ui/HeaderMenu'
 import BackButton from '@/components/ui/BackButton'
+import TombstoneShareCard from '@/components/ui/TombstoneShareCard'
 import { COPY } from '@/lib/copy/hints'
 import type { ElementId, FullPet } from '@/types/pet'
 import type { DisplayTask } from '@/types/task'
@@ -23,6 +24,8 @@ interface Props {
   pet: FullPet
   /** 调用者当前是否无活宠，决定"召唤新的一只" CTA 是否显示 */
   canSummonNext: boolean
+  /** v3.9.3: AI 生成的"它的一生"叙事；subscriber 异步生成，未生成时为 null */
+  narrative: { title: string; body: string; cause: 'died' | 'released' } | null
 }
 
 /**
@@ -30,7 +33,7 @@ interface Props {
  * 展示已放生 / 已安息宠物的"活过的证据"：属性/故事/涂鸦/任务履历。
  * 无 TaskStage 入口、无放生按钮。
  */
-export default function MePetDetailClient({ pet, canSummonNext }: Props) {
+export default function MePetDetailClient({ pet, canSummonNext, narrative }: Props) {
   const [history, setHistory] = useState<DisplayTask[]>([])
   const bgUrl = pet.element ? ELEMENT_BG[pet.element] : '/daily-bg.jpg'
 
@@ -98,6 +101,24 @@ export default function MePetDetailClient({ pet, canSummonNext }: Props) {
             <p className="text-white text-xs tabular-nums">{birthDateStr}</p>
           </div>
         </div>
+
+        {/* v3.9.3: AI 生成的"它的一生"叙事（subscriber 异步生成；未到位时短暂占位）*/}
+        {narrative ? (
+          <TombstoneShareCard
+            title={narrative.title}
+            body={narrative.body}
+            cause={narrative.cause}
+          />
+        ) : (
+          <div className="rounded-2xl bg-black/50 border border-white/10 px-5 py-4 backdrop-blur-sm">
+            <p className="text-white/55 text-xs">
+              {pet.status === 'released' ? '🕊️ 它回到了风里…' : '🕯️ 它正在被记起…'}
+            </p>
+            <p className="text-white/40 text-[11px] mt-1">
+              （叙事生成中，稍后刷新可看）
+            </p>
+          </div>
+        )}
 
         {/* 基础属性（只读） */}
         <div className="rounded-2xl bg-gray-900/60 border border-gray-800 px-4 py-3 space-y-1.5 text-sm">

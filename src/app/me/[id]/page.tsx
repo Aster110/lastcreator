@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { readUser } from '@/lib/identity'
 import { getFullPet } from '@/lib/repo/petState'
 import { countAliveByOwner } from '@/lib/repo/pets'
+import { listByPet } from '@/lib/repo/memories'
 import MePetDetailClient from './client'
 
 export const dynamic = 'force-dynamic'
@@ -50,5 +51,17 @@ export default async function MePetDetailPage({ params }: PageProps) {
   const aliveCount = await countAliveByOwner(user.userId)
   const canSummonNext = aliveCount === 0
 
-  return <MePetDetailClient pet={pet} canSummonNext={canSummonNext} />
+  // v3.9.3: 取该宠物的"它的一生"叙事（subscriber 异步生成；未生成时返 null）
+  const memories = await listByPet(pet.id, 50)
+  const narrativeMem = memories.find(m => m.kind === 'narrative')
+  const narrative =
+    narrativeMem && narrativeMem.payload.kind === 'narrative'
+      ? {
+          title: narrativeMem.payload.title,
+          body: narrativeMem.payload.body,
+          cause: narrativeMem.payload.cause,
+        }
+      : null
+
+  return <MePetDetailClient pet={pet} canSummonNext={canSummonNext} narrative={narrative} />
 }

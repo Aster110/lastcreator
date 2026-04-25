@@ -1,6 +1,7 @@
 import { registerTaskRewardSubscriber } from './task-reward'
 import { registerPetBornTaskSubscriber } from './pet-born-task'
 import { registerMemoryExtractSubscriber } from './memory-extract'
+import { registerDeathNarrateSubscriber } from './death-narrate'
 
 let registered = false
 
@@ -14,4 +15,5 @@ export function ensureSubscribers(): void {
   registerTaskRewardSubscriber()
   registerPetBornTaskSubscriber()
   registerMemoryExtractSubscriber()  // v3.9.2: 异步从 photo 任务 extract preferences
+  registerDeathNarrateSubscriber()   // v3.9.3: pet.died/released → 生成"它的一生"
 }
