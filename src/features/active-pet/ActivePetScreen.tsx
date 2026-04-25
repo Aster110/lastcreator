@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import TaskEntryCard from '@/components/ui/TaskEntryCard'
 import TaskStage from '@/components/ui/TaskStage'
 import TaskHistoryList from '@/components/ui/TaskHistoryList'
-import ShareActions from '@/components/ui/ShareActions'
 import Countdown from '@/components/ui/Countdown'
 import HeaderMenu, { type HeaderMenuItem } from '@/components/ui/HeaderMenu'
 import { usePetTasks } from '@/hooks/usePetTasks'
 import { usePetActions } from '@/hooks/usePetActions'
+import { copyShareLink } from '@/lib/ui/share'
 import { COPY } from '@/lib/copy/hints'
 import type { ElementId, FullPet } from '@/types/pet'
 
@@ -72,9 +72,11 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
   const birthDateStr = `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
 
   // v3.6: HeaderMenu items（取代旧的 ManageSheet + 右上"图鉴"链接）
+  // v3.8.3: 加"分享它"，从主屏 hero 区移进菜单（治"分享按钮抢任务卡视觉"）
   const menuItems: HeaderMenuItem[] = [
     { label: COPY.menu.myHistory, href: '/me/history' },
     { label: COPY.menu.gallery, href: '/gallery' },
+    { label: COPY.menu.share, onClick: () => copyShareLink(pet.id) },
     {
       label: COPY.menu.release,
       tone: 'danger',
@@ -136,8 +138,7 @@ export default function ActivePetScreen({ pet: initialPet }: Props) {
           </div>
         </div>
 
-        {/* v3.6: 分享 CTA 前置到 hero 附近 */}
-        <ShareActions petId={pet.id} petName={pet.name} story={pet.story} className="w-full" />
+        {/* v3.8.3: 分享 CTA 移入 HeaderMenu，hero 区只保留任务卡（治"按钮抢任务卡视觉"）*/}
 
         {/* 任务入口卡 —— v3.5 hero 等级 */}
         <div>
