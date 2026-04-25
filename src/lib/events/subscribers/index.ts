@@ -1,5 +1,6 @@
 import { registerTaskRewardSubscriber } from './task-reward'
 import { registerPetBornTaskSubscriber } from './pet-born-task'
+import { registerMemoryExtractSubscriber } from './memory-extract'
 
 let registered = false
 
@@ -12,4 +13,5 @@ export function ensureSubscribers(): void {
   registered = true
   registerTaskRewardSubscriber()
   registerPetBornTaskSubscriber()
+  registerMemoryExtractSubscriber()  // v3.9.2: 异步从 photo 任务 extract preferences
 }
