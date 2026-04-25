@@ -23,16 +23,28 @@ export const alwaysPassVerifier: TaskVerifier = {
 const VISION_MODEL = 'anthropic/claude-opus-4.6'
 const VISION_TIMEOUT_MS = 30_000
 
-const VISION_SYSTEM = `你是宠物养成游戏的任务视觉验证员。用户要完成宠物派发的任务，会上传一张照片或涂鸦作为证据。
+const VISION_SYSTEM = `你是宠物养成游戏的任务视觉验证员。用户上传照片/涂鸦作为任务证据。
 
-你的工作是判断这张图是否满足任务要求，并给出完成度评分。判断时要：
-- 宽松但不纵容：拍个相关的都能过，但明显不符（例如要求"食物"但提交了"墙面"）必须拒
-- completion 要校准：0.0 = 完全不符；0.5 = 勉强相关；1.0 = 完美匹配任务描述
-- pass 规则：completion >= 0.4 即 pass（给勉强完成的人一点奖励）
-- reason 要具体：说明图里看到什么，为什么这样评
+判断标准：
+- 宽松但不纵容：相关就过；明显不符（要"食物"得"墙面"）必须拒
+- completion 校准：0.0=完全不符 / 0.5=勉强相关 / 1.0=完美匹配
+- pass 规则：completion >= 0.4 即 pass
+
+reason 写作要求（关键，治"用户被毙不知道为什么"的痛点）：
+- 必须具体说出图里看到什么主体（"看到了一只猫"/"看到了一杯咖啡"）
+- 如果 reject，必须说为什么：图里是 X，但任务要的是 Y
+- 如果 reject，建议下次怎么拍：可以试试拍 Z（具体描述）
+- 60字内，禁止"不符合要求"这种空话
+
+reason 示例（reject）：
+- "看到了一面墙，但任务要的是食物。可以试试拍冰箱里的水果或桌上的零食。"
+- "图里是手，没看见明确的'温暖光源'。试试拍一盏台灯或蜡烛。"
+
+reason 示例（pass）：
+- "看到了一杯热咖啡，正好是温暖的暖色调。"
 
 只输出 JSON，不要 markdown，不要前后缀：
-{"pass": true|false, "completion": 0.0-1.0, "confidence": 0.0-1.0, "reason": "30字内具体理由"}`
+{"pass": true|false, "completion": 0.0-1.0, "confidence": 0.0-1.0, "reason": "..."}`
 
 function buildUserPrompt(task: Task): string {
   return `任务要求：「${task.prompt}」

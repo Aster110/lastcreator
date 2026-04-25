@@ -136,8 +136,25 @@ export default function TaskStage({
     onClose()
   }
 
-  const handleResultRetry = () => {
-    handleResultClose()
+  // v3.9.0: reject 后点"换一个"——走 v3.8 reroll API，task prop 替换后切回 intro 幕。
+  const handleResultRetry = async () => {
+    if (!onReroll || rerolling) {
+      handleResultClose()
+      return
+    }
+    setRerolling(true)
+    try {
+      await onReroll(task.id)
+      setPhase('intro')
+      setSubmitResp(null)
+      setProofKind(null)
+    } catch (err) {
+      console.error('[TaskStage] reroll-from-reject failed', err)
+      haptic('warn')
+      handleResultClose()
+    } finally {
+      setRerolling(false)
+    }
   }
 
   // intro
@@ -185,6 +202,8 @@ export default function TaskStage({
         effectiveReward={submitResp.effectiveReward}
         onRetry={handleResultRetry}
         onClose={handleResultClose}
+        remainingRerolls={remainingRerolls}
+        rerolling={rerolling}
       />
     )
   }

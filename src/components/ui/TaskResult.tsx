@@ -23,6 +23,10 @@ interface Props {
   /** reject 时走"换一个"；pass 时不显示 */
   onRetry(): void
   onClose(): void
+  /** v3.9: reject 幕"换一个"按钮的剩余次数；undefined 或 0 → 隐藏 */
+  remainingRerolls?: number
+  /** v3.9: reroll 进行中禁用 */
+  rerolling?: boolean
 }
 
 /**
@@ -39,6 +43,8 @@ export default function TaskResult({
   effectiveReward,
   onRetry,
   onClose,
+  remainingRerolls,
+  rerolling,
 }: Props) {
   if (verdict.pass) {
     return (
@@ -51,7 +57,16 @@ export default function TaskResult({
       />
     )
   }
-  return <RejectLayer pet={pet} verdict={verdict} onRetry={onRetry} onClose={onClose} />
+  return (
+    <RejectLayer
+      pet={pet}
+      verdict={verdict}
+      onRetry={onRetry}
+      onClose={onClose}
+      remainingRerolls={remainingRerolls}
+      rerolling={rerolling}
+    />
+  )
 }
 
 function PassLayer({
@@ -180,16 +195,20 @@ function RejectLayer({
   verdict,
   onRetry,
   onClose,
+  remainingRerolls,
+  rerolling,
 }: {
   pet: FullPet
   verdict: TaskVerdict
   onRetry(): void
   onClose(): void
+  remainingRerolls?: number
+  rerolling?: boolean
 }) {
   const bgUrl = pet.element ? ELEMENT_BG[pet.element] : '/daily-bg.jpg'
-  // reject 展示但不启用 retry（P1 reroll 接口未接入）—— 只显示"关闭"
-  // 未来 reroll 接入后去掉下一行
-  const retryAvailable = false
+  // v3.9: 接入 v3.8 reroll API。剩余 > 0 才启用"换一个"
+  const retryAvailable =
+    typeof remainingRerolls === 'number' && remainingRerolls > 0
   return (
     <div
       className="fixed inset-0 z-50 overflow-hidden bg-cover bg-center bg-no-repeat"
@@ -219,14 +238,18 @@ function RejectLayer({
         {retryAvailable && (
           <button
             onClick={onRetry}
-            className="w-full h-12 rounded-full bg-white/90 text-gray-900 text-sm font-semibold active:scale-[0.98] transition-transform"
+            disabled={rerolling}
+            className="w-full h-12 rounded-full bg-white/90 text-gray-900 text-sm font-semibold active:scale-[0.98] transition-transform disabled:opacity-50"
           >
-            {COPY.taskStage.rejectRetry}
+            {rerolling
+              ? COPY.taskStage.rerollLoading
+              : COPY.taskStage.rerollCTA(remainingRerolls!)}
           </button>
         )}
         <button
           onClick={onClose}
-          className="w-full h-12 rounded-full bg-white/10 border border-white/30 text-white text-sm active:scale-[0.98] transition-transform"
+          disabled={rerolling}
+          className="w-full h-12 rounded-full bg-white/10 border border-white/30 text-white text-sm active:scale-[0.98] transition-transform disabled:opacity-50"
         >
           {COPY.taskStage.rejectClose}
         </button>

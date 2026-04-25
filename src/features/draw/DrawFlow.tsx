@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import DrawingCanvas from './DrawingCanvas'
 import LoadingScreen from './LoadingScreen'
 import { COPY } from '@/lib/copy/hints'
+import { pickGenLine } from '@/lib/copy/genLines'
 import type { DisplayPet } from '@/types/pet'
 
 type Phase = 'drawing' | 'video1' | 'waitConfirm' | 'waitingForPet' | 'video2' | 'loading'
@@ -246,6 +247,15 @@ function FullscreenVideo({
 }
 
 function WaitingForPet({ posterSrc }: { posterSrc: string }) {
+  // v3.9.0: 随机抽召唤台词，1.8s 切一条；末日 + 召唤主题（治"30s 等待无进度感"痛点）
+  const [line, setLine] = useState(() => pickGenLine(null))
+  useEffect(() => {
+    const id = setInterval(() => {
+      setLine(prev => pickGenLine(prev))
+    }, 1800)
+    return () => clearInterval(id)
+  }, [])
+
   return (
     <div className="fixed inset-0 bg-black">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -255,9 +265,11 @@ function WaitingForPet({ posterSrc }: { posterSrc: string }) {
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="absolute bottom-24 left-1/2 -translate-x-1/2 flex items-center gap-3
-                      px-5 py-3 rounded-full bg-black/60 backdrop-blur-sm text-stone-100 text-sm">
-        <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-        <span>正在生成...</span>
+                      px-5 py-3 rounded-full bg-black/60 backdrop-blur-sm text-stone-100 text-sm
+                      max-w-[80vw]">
+        <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin shrink-0" />
+        {/* key={line} 触发 anim-fade 重放，每次切换有淡入感 */}
+        <span key={line} className="anim-fade truncate">{line}</span>
       </div>
     </div>
   )
