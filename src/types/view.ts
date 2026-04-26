@@ -36,8 +36,6 @@ export interface PetView {
 
   /** 原始涂鸦 R2 key，仅 owner 可见 */
   doodleR2Key?: string | null
-  /** 继承自哪只宠物（记忆链） */
-  memoryFromPetId?: string | null
 
   // ===== v3.2 生命倒计时与任务统计 =====
   /** 生命终点 UNIX ms；null = 老数据或非 alive */

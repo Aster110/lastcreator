@@ -25,8 +25,6 @@ interface FullRow {
   image_r2_key: string
   image_origin_url: string | null
   doodle_r2_key: string | null
-  memory_from_pet_id: string | null
-  memory_fragment: string | null
   created_at: number
   p_name: string
   p_habitat: string
@@ -75,8 +73,6 @@ function rowToFull(r: FullRow): FullPet {
     imageUrl: publicUrl(r.image_r2_key),
     imageOriginUrl: r.image_origin_url,
     doodleR2Key: r.doodle_r2_key,
-    memoryFromPetId: r.memory_from_pet_id,
-    memoryFragment: r.memory_fragment ? JSON.parse(r.memory_fragment) : null,
     element: (r.p_element as ElementId | null) ?? null,
     createdAt: r.created_at,
     birthName: r.p_name,
@@ -104,7 +100,7 @@ function rowToFull(r: FullRow): FullPet {
 
 const FULL_PET_COLUMNS = `
   p.id, p.owner_id, p.image_r2_key, p.image_origin_url, p.doodle_r2_key,
-  p.memory_from_pet_id, p.memory_fragment, p.created_at,
+  p.created_at,
   p.name AS p_name, p.habitat AS p_habitat, p.personality AS p_personality,
   p.skills AS p_skills, p.hp AS p_hp, p.story AS p_story, p.element AS p_element,
   s.name AS s_name, s.personality AS s_personality,

@@ -29,7 +29,6 @@ export function petViewFromFullPet(pet: FullPet, ctx: PetViewContext = {}): PetV
   const badges: PillDesc[] = []
   if (pet.status === 'released') badges.push({ tone: 'neutral', label: '🕊️ 已放生' })
   if (pet.status === 'dead') badges.push({ tone: 'danger', label: '🕯️ 已安息' })
-  if (pet.memoryFromPetId) badges.push({ tone: 'gold', label: '✧ 记忆传承' })
 
   const lifeRemainingMs = pet.lifeExpiresAt ? Math.max(0, pet.lifeExpiresAt - now) : 0
   const lifeStatusLabel = computeLifeStatusLabel(pet, lifeRemainingMs, now)
@@ -53,7 +52,6 @@ export function petViewFromFullPet(pet: FullPet, ctx: PetViewContext = {}): PetV
     isOwner: ctx.currentUserId ? ctx.currentUserId === pet.ownerId : false,
     badges,
     doodleR2Key: pet.doodleR2Key ?? null,
-    memoryFromPetId: pet.memoryFromPetId ?? null,
     lifeExpiresAt: pet.lifeExpiresAt,
     lifeRemainingMs,
     lifeStatusLabel,

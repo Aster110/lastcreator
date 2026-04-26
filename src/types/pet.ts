@@ -24,8 +24,6 @@ export interface Pet extends PetAttributes {
   exp: number
   stage: PetStage
   status: PetStatus
-  memoryFromPetId?: string | null
-  memoryFragment?: Record<string, unknown> | null
   /** v3.3：诞生时分配的元素属性（null = 老数据未分配） */
   element?: ElementId | null
   createdAt: number
@@ -92,8 +90,6 @@ export interface FullPet {
   imageUrl: string
   imageOriginUrl?: string | null
   doodleR2Key?: string | null
-  memoryFromPetId?: string | null
-  memoryFragment?: Record<string, unknown> | null
   /** v3.3：诞生时分配的元素属性 */
   element?: ElementId | null
   createdAt: number

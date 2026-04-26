@@ -59,8 +59,6 @@ function mockPet(): FullPet {
     imageUrl: 'https://media.lastcreator.cc/pets/mock/image.png',
     imageOriginUrl: null,
     doodleR2Key: null,
-    memoryFromPetId: null,
-    memoryFragment: null,
     element: 'ruins',
     createdAt: 1000,
     updatedAt: 1000,

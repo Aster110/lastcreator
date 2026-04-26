@@ -17,8 +17,6 @@ interface PetRow {
   doodle_r2_key: string | null
   stage: string
   status: string
-  memory_from_pet_id: string | null
-  memory_fragment: string | null
   element: string | null
   created_at: number
   updated_at: number
@@ -41,8 +39,6 @@ function rowToPet(r: PetRow): Pet {
     doodleR2Key: r.doodle_r2_key,
     stage: r.stage as Pet['stage'],
     status: r.status as Pet['status'],
-    memoryFromPetId: r.memory_from_pet_id,
-    memoryFragment: r.memory_fragment ? JSON.parse(r.memory_fragment) : null,
     element: (r.element as ElementId | null) ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -59,9 +55,9 @@ export async function createPet(data: PetCreate): Promise<Pet> {
       `INSERT INTO pets (
         id, owner_id, name, habitat, personality, skills, hp, exp, story,
         image_r2_key, image_origin_url, doodle_r2_key, stage, status,
-        memory_from_pet_id, memory_fragment, element, alive_owner_id,
+        element, alive_owner_id,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       data.id,
@@ -78,8 +74,6 @@ export async function createPet(data: PetCreate): Promise<Pet> {
       data.doodleR2Key ?? null,
       data.stage ?? '幼年',
       status,
-      data.memoryFromPetId ?? null,
-      data.memoryFragment ? JSON.stringify(data.memoryFragment) : null,
       data.element ?? null,
       aliveOwnerId,
       now,
