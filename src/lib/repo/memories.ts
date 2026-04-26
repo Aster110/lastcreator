@@ -1,9 +1,9 @@
 /**
- * v3.9.2 memories repo。
- * §8 数据层铁律：所有 SQL 仅在此文件；业务层只调函数，不见 prepare/bind。
+ * v3.9.2 memories repo。v4.0 加 memory_tags 级联写（D1 batch 原子提交）。
+ * §8b 数据层铁律：所有 SQL 仅在此文件；业务层只调函数，不见 prepare/bind。
  *
  * v1 暴露：addMemory / listByPet / listByOwnerAndKind / getById
- * v2 计划：addBatch / aggregateByOwner（学习用）
+ * v4.0 改动：addMemory 内部级联 memory_tags（不改签名）；preference 写入时 tags 同步落表
  */
 import { getDb } from '@/lib/db/client'
 import { prefixedId } from '@/lib/db/nanoid'
@@ -39,13 +39,18 @@ function rowToMemory(r: MemoryRow): MemoryRecord {
   }
 }
 
-/** 写入一条 memory，返回带 id 的完整 record */
+/**
+ * 写入一条 memory，返回带 id 的完整 record。
+ *
+ * v4.0：preference + 非空 tags → 同一 D1 batch 内级联写 memory_tags（原子提交）。
+ * D1 batch 任一语句失败整体回滚——保证 memories 与 memory_tags 不分裂。
+ */
 export async function addMemory(input: MemoryCreate): Promise<MemoryRecord> {
   const db = getDb()
-  // 'm_' 跟其他实体（u_/p_/t_）prefix 一致；IdPrefix 'm' 占位于 nanoid.ts
   const id = prefixedId('m')
   const now = Date.now()
-  await db
+
+  const memoryStmt = db
     .prepare(
       `INSERT INTO memories
          (id, pet_id, owner_id, kind, source, source_ref, payload, created_at)
@@ -61,7 +66,28 @@ export async function addMemory(input: MemoryCreate): Promise<MemoryRecord> {
       JSON.stringify(input.payload),
       now,
     )
-    .run()
+
+  const tagStmts =
+    input.kind === 'preference' && input.payload.kind === 'preference'
+      ? input.payload.tags.map(tag =>
+          db
+            .prepare(
+              `INSERT OR IGNORE INTO memory_tags
+                 (memory_id, owner_id, tag, weight, created_at)
+               VALUES (?, ?, ?, ?, ?)`,
+            )
+            .bind(
+              id,
+              input.ownerId,
+              tag,
+              input.payload.kind === 'preference' ? input.payload.confidence : 1.0,
+              now,
+            ),
+        )
+      : []
+
+  await db.batch([memoryStmt, ...tagStmts])
+
   return {
     id,
     petId: input.petId,
