@@ -1,3 +1,12 @@
+/**
+ * tasks repo。
+ * §8b 数据层抽象铁律：所有 SQL 仅在此文件；业务层只调函数，不见 prepare/bind。
+ *
+ * v4.1 Phase A：reward / ai_verdict JSON 拆列。
+ *   - expand 阶段：rowToTask 优先读新列，老数据 fallback JSON 解析
+ *   - createTask / updateTaskStatus 写新列同时双写老 JSON 列（兼容期）
+ *   - contract 阶段（0012+）观察稳定后 DROP 旧列
+ */
 import { getDb } from '@/lib/db/client'
 import type { Task, TaskKind, TaskStatus, Reward, TaskVerdict } from '@/types/task'
 
@@ -8,15 +17,71 @@ interface TaskRow {
   /** v3.9.1: 用户实际提交的 kind（NULL 直到 submit） */
   actual_kind: string | null
   prompt: string
+  /** v4.1 Phase A: legacy JSON，业务读优先看 reward_* 列 */
   reward: string
   status: string
   proof_r2_key: string | null
+  /** v4.1 Phase A: legacy JSON，业务读优先看 verdict_* 列 */
   ai_verdict: string | null
   verify_hint: string | null
   created_at: number
   submitted_at: number | null
   completed_at: number | null
   expires_at: number
+  // v4.1 新列
+  reward_minutes: number | null
+  reward_exp: number | null
+  reward_unlock_skill: number | null
+  verdict_pass: number | null
+  verdict_completion: number | null
+  verdict_reason: string | null
+}
+
+/**
+ * 从行中重建 Reward。优先用新列；新列全 NULL（=未迁移）时 fallback JSON。
+ *
+ * 单独导出以便单测（无需 D1）。
+ */
+export function rowToReward(r: Pick<TaskRow, 'reward' | 'reward_minutes' | 'reward_exp' | 'reward_unlock_skill'>): Reward {
+  const hasNewCols =
+    r.reward_minutes !== null || r.reward_exp !== null || r.reward_unlock_skill !== null
+  if (hasNewCols) {
+    const out: Reward = {}
+    if (r.reward_minutes !== null) out.minutes = r.reward_minutes
+    if (r.reward_exp !== null) out.exp = r.reward_exp
+    if (r.reward_unlock_skill === 1) out.unlockSkill = true
+    return out
+  }
+  // fallback：老数据未迁移
+  if (!r.reward) return {}
+  try {
+    return JSON.parse(r.reward) as Reward
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * 从行中重建 TaskVerdict。优先用新列；新列全 NULL 且无老 JSON 时返 null。
+ *
+ * 单独导出以便单测。
+ */
+export function rowToVerdict(r: Pick<TaskRow, 'ai_verdict' | 'verdict_pass' | 'verdict_completion' | 'verdict_reason'>): TaskVerdict | null {
+  const hasNewCols =
+    r.verdict_pass !== null || r.verdict_completion !== null || r.verdict_reason !== null
+  if (hasNewCols) {
+    return {
+      pass: r.verdict_pass === 1,
+      completion: r.verdict_completion ?? 0,
+      reason: r.verdict_reason ?? '',
+    }
+  }
+  if (!r.ai_verdict) return null
+  try {
+    return JSON.parse(r.ai_verdict) as TaskVerdict
+  } catch {
+    return null
+  }
 }
 
 function rowToTask(r: TaskRow): Task {
@@ -27,10 +92,10 @@ function rowToTask(r: TaskRow): Task {
     actualKind: r.actual_kind ? (r.actual_kind as TaskKind) : null,
     prompt: r.prompt,
     verifyHint: r.verify_hint ?? '',
-    reward: JSON.parse(r.reward),
+    reward: rowToReward(r),
     status: r.status as TaskStatus,
     proofR2Key: r.proof_r2_key,
-    aiVerdict: r.ai_verdict ? JSON.parse(r.ai_verdict) as TaskVerdict : null,
+    aiVerdict: rowToVerdict(r),
     createdAt: r.created_at,
     submittedAt: r.submitted_at,
     completedAt: r.completed_at,
@@ -51,13 +116,27 @@ export interface TaskCreate {
 export async function createTask(data: TaskCreate): Promise<Task> {
   const db = getDb()
   const now = Date.now()
+  // v4.1: 双写——新列 + 老 JSON 列（reward NOT NULL 兼容）
   await db
     .prepare(
       `INSERT INTO tasks
-         (id, pet_id, kind, prompt, verify_hint, reward, status, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+         (id, pet_id, kind, prompt, verify_hint, reward, status, created_at, expires_at,
+          reward_minutes, reward_exp, reward_unlock_skill)
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
     )
-    .bind(data.id, data.petId, data.kind, data.prompt, data.verifyHint, JSON.stringify(data.reward), now, data.expiresAt)
+    .bind(
+      data.id,
+      data.petId,
+      data.kind,
+      data.prompt,
+      data.verifyHint,
+      JSON.stringify(data.reward),
+      now,
+      data.expiresAt,
+      data.reward.minutes ?? null,
+      data.reward.exp ?? null,
+      data.reward.unlockSkill ? 1 : null,
+    )
     .run()
   const t = await getTask(data.id)
   if (!t) throw new Error('createTask: row missing after insert')
@@ -192,10 +271,29 @@ export async function updateTaskStatus(
   const db = getDb()
   const sets = ['status = ?']
   const values: unknown[] = [status]
-  if (patch.proofR2Key !== undefined) { sets.push('proof_r2_key = ?'); values.push(patch.proofR2Key) }
-  if (patch.aiVerdict !== undefined) { sets.push('ai_verdict = ?'); values.push(JSON.stringify(patch.aiVerdict)) }
-  if (patch.submittedAt !== undefined) { sets.push('submitted_at = ?'); values.push(patch.submittedAt) }
-  if (patch.completedAt !== undefined) { sets.push('completed_at = ?'); values.push(patch.completedAt) }
+  if (patch.proofR2Key !== undefined) {
+    sets.push('proof_r2_key = ?')
+    values.push(patch.proofR2Key)
+  }
+  if (patch.aiVerdict !== undefined) {
+    // v4.1: 双写——老 ai_verdict JSON + 新 verdict_* 列
+    sets.push('ai_verdict = ?')
+    values.push(JSON.stringify(patch.aiVerdict))
+    sets.push('verdict_pass = ?')
+    values.push(patch.aiVerdict.pass ? 1 : 0)
+    sets.push('verdict_completion = ?')
+    values.push(patch.aiVerdict.completion)
+    sets.push('verdict_reason = ?')
+    values.push(patch.aiVerdict.reason)
+  }
+  if (patch.submittedAt !== undefined) {
+    sets.push('submitted_at = ?')
+    values.push(patch.submittedAt)
+  }
+  if (patch.completedAt !== undefined) {
+    sets.push('completed_at = ?')
+    values.push(patch.completedAt)
+  }
   values.push(id)
   await db.prepare(`UPDATE tasks SET ${sets.join(', ')} WHERE id = ?`).bind(...values).run()
 }
