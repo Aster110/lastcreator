@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { anonId, prefixedId } from '@/lib/db/nanoid'
-import { getDb } from '@/lib/db/client'
+import { findUserIdByAnonId, insertUser } from '@/lib/repo/users'
 
 const COOKIE_NAME = 'lc_anon'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2 // 2 年
@@ -19,13 +19,9 @@ export async function readUser(): Promise<ResolvedUser | null> {
   const jar = await cookies()
   const anon = jar.get(COOKIE_NAME)?.value
   if (!anon) return null
-  const db = getDb()
-  const existing = await db
-    .prepare("SELECT id FROM users WHERE anon_ids LIKE ? LIMIT 1")
-    .bind(`%"${anon}"%`)
-    .first<{ id: string }>()
-  if (!existing) return null
-  return { userId: existing.id, anonId: anon, isNew: false }
+  const userId = await findUserIdByAnonId(anon)
+  if (!userId) return null
+  return { userId, anonId: anon, isNew: false }
 }
 
 /**
@@ -37,14 +33,9 @@ export async function resolveUser(): Promise<ResolvedUser> {
   let anon = jar.get(COOKIE_NAME)?.value
 
   if (anon) {
-    // 已有 cookie，查/建 user
-    const db = getDb()
-    const existing = await db
-      .prepare("SELECT id FROM users WHERE anon_ids LIKE ? LIMIT 1")
-      .bind(`%"${anon}"%`)
-      .first<{ id: string }>()
-    if (existing) {
-      return { userId: existing.id, anonId: anon, isNew: false }
+    const existingId = await findUserIdByAnonId(anon)
+    if (existingId) {
+      return { userId: existingId, anonId: anon, isNew: false }
     }
     // cookie 指向的 user 被删除/数据库被重建 → 重新入库
     const userId = await createUser(anon)
@@ -65,12 +56,8 @@ export async function resolveUser(): Promise<ResolvedUser> {
 }
 
 async function createUser(firstAnonId: string): Promise<string> {
-  const db = getDb()
   const userId = prefixedId('u')
   const now = Date.now()
-  await db
-    .prepare("INSERT INTO users (id, anon_ids, created_at) VALUES (?, ?, ?)")
-    .bind(userId, JSON.stringify([firstAnonId]), now)
-    .run()
+  await insertUser(userId, firstAnonId, now)
   return userId
 }

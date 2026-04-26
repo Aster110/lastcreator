@@ -1,5 +1,6 @@
-import { getCtx, getDb } from '@/lib/db/client'
+import { getCtx } from '@/lib/db/client'
 import { prefixedId } from '@/lib/db/nanoid'
+import { insertEvent } from '@/lib/repo/events'
 import type { DomainEvent, EventType } from '@/types/event'
 
 type Handler<T extends EventType> = (e: Extract<DomainEvent, { type: T }>) => void | Promise<void>
@@ -39,16 +40,18 @@ export function emit(event: DomainEvent): void {
 }
 
 async function persistEvent(event: DomainEvent): Promise<void> {
-  const db = getDb()
   const { type, at, ...rest } = event
   const actorId =
     'ownerId' in rest ? (rest as { ownerId: string }).ownerId
     : 'petId' in rest ? (rest as { petId: string }).petId
     : null
-  await db
-    .prepare('INSERT INTO events (id, type, actor_id, payload, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(prefixedId('e'), type, actorId, JSON.stringify(rest), at)
-    .run()
+  await insertEvent({
+    id: prefixedId('e'),
+    type,
+    actorId,
+    payload: JSON.stringify(rest),
+    createdAt: at,
+  })
 }
 
 function safeCtx(): ExecutionContext | null {

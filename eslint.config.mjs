@@ -28,15 +28,9 @@ const eslintConfig = [
 			],
 		},
 	},
-	// repo + db 层放行
+	// repo + db 层放行（v4.1 Phase E：identity/events grandfathered 已抽到 lib/repo/{users,events}.ts）
 	{
 		files: ["src/lib/repo/**/*.ts", "src/lib/db/**/*.ts"],
-		rules: { "no-restricted-syntax": "off" },
-	},
-	// v4.0 grandfathered：identity/events 内嵌 SQL 早于 §8b 铁律。
-	// TODO(v4.x): 抽到 src/lib/repo/{users,events}.ts，移除豁免。
-	{
-		files: ["src/lib/identity/**/*.ts", "src/lib/events/**/*.ts"],
 		rules: { "no-restricted-syntax": "off" },
 	},
 ];

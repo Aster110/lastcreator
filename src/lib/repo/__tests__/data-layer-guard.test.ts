@@ -4,8 +4,9 @@
  * 规则：SQL 字符串（`.prepare(`）只允许出现在
  *   - src/lib/repo/**
  *   - src/lib/db/**
- *   - src/lib/identity/** · v4.0 grandfathered（TODO: 重构进 src/lib/repo/users.ts）
- *   - src/lib/events/index.ts · v4.0 grandfathered（TODO: 重构进 src/lib/repo/events.ts）
+ *
+ * v4.1 Phase E：identity/events grandfathered 已抽到 lib/repo/{users,events}.ts，
+ * 豁免清单收窄到只剩 repo + db 两条。
  *
  * 这个测试是 §8b 真正的守门人——ESLint 配置因 Next.js 16 + ESLint 9 兼容问题
  * 暂时无法运行（pre-existing），靠 vitest 跑住底线。
@@ -21,8 +22,6 @@ const SRC_ROOT = join(__dirname, '../../../') // src/
 const ALLOWED_PREFIXES = [
   'lib/repo/',
   'lib/db/',
-  'lib/identity/', // v4.0 grandfathered
-  'lib/events/index.ts', // v4.0 grandfathered（events 子目录的 subscribers/* 不允许）
 ]
 
 function walkTs(dir: string, out: string[] = []): string[] {
