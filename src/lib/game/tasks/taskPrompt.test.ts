@@ -12,7 +12,11 @@ import {
   nowSlotFromDate,
   buildPromptContext,
   pickTemplateForPet,
+  preferenceWeight,
+  W_PREFERENCE_HIT,
 } from './taskPrompt'
+import type { TaskTemplate } from './templates'
+import type { UserPreference } from '@/types/profile'
 import type { FullPet, ElementId } from '@/types/pet'
 
 function mockPet(overrides: Partial<FullPet> = {}): FullPet {
@@ -161,5 +165,103 @@ describe('v3.8 pickTemplateForPet context filtering', () => {
     }
     const ratio = outdoor / N
     expect(ratio, `outdoor ratio = ${ratio}`).toBeLessThan(0.2)
+  })
+})
+
+// =============================================================================
+// v4.1 preferenceWeight + pickTemplate preference 加权
+// =============================================================================
+
+function pref(...tags: string[]): UserPreference {
+  return {
+    ownerId: 'u_test',
+    topTags: tags.map(tag => ({ tag, count: 1, weight: 1.0 })),
+    totalMemories: tags.length,
+    lastUpdated: 1000,
+  }
+}
+
+const FOOD_TEMPLATE: TaskTemplate = {
+  id: 'ruins-food',
+  kind: 'photo',
+  element: 'ruins',
+  context: 'any',
+  promptSkeleton: '末日里我饿了，帮我找 {subject}',
+  slots: ['subject'],
+  defaultPrompt: '末日里我饿了，帮我找点能吃的',
+  verifyHint: '图中包含食物、水果、饮品或任何可食用的东西',
+  reward: { minutes: 420, exp: 20 },
+  expiresInMs: 86400000,
+}
+
+describe('v4.1 preferenceWeight', () => {
+  it('userPreference undefined → 1.0', () => {
+    expect(preferenceWeight(FOOD_TEMPLATE, undefined)).toBe(1.0)
+  })
+
+  it('topTags 空 → 1.0', () => {
+    expect(preferenceWeight(FOOD_TEMPLATE, pref())).toBe(1.0)
+  })
+
+  it('tag 命中 verifyHint → 1.5', () => {
+    // "食物" 在 ruins-food 的 verifyHint 里
+    expect(preferenceWeight(FOOD_TEMPLATE, pref('食物'))).toBe(W_PREFERENCE_HIT)
+  })
+
+  it('tag 命中 defaultPrompt → 1.5', () => {
+    // "饿" 在 defaultPrompt 里
+    expect(preferenceWeight(FOOD_TEMPLATE, pref('饿'))).toBe(W_PREFERENCE_HIT)
+  })
+
+  it('tag 完全不命中 → 1.0', () => {
+    expect(preferenceWeight(FOOD_TEMPLATE, pref('量子物理', '机器学习'))).toBe(1.0)
+  })
+
+  it('多 tag 任一命中即触发', () => {
+    expect(preferenceWeight(FOOD_TEMPLATE, pref('量子物理', '水果'))).toBe(W_PREFERENCE_HIT)
+  })
+
+  it('空字符串 tag 不误命中', () => {
+    expect(preferenceWeight(FOOD_TEMPLATE, pref(''))).toBe(1.0)
+  })
+})
+
+describe('v4.1 pickTemplateForPet with userPreference', () => {
+  it('preference 命中 → 该模板被抽中概率显著上升', () => {
+    const pet = mockPet({ element: 'ruins' })
+    const userPreference = pref('食物') // ruins-food 命中
+    let foodCount = 0
+    let baselineCount = 0
+    const N = 2000
+
+    // 有 preference 跑 N 次
+    for (let i = 0; i < N; i++) {
+      const t = pickTemplateForPet(pet, Math.random, { userPreference, nowSlot: 'morning' })
+      if (t.id === 'ruins-food') foodCount++
+    }
+    // 无 preference 基线 N 次
+    for (let i = 0; i < N; i++) {
+      const t = pickTemplateForPet(pet, Math.random, { nowSlot: 'morning' })
+      if (t.id === 'ruins-food') baselineCount++
+    }
+
+    const ratioWithPref = foodCount / N
+    const ratioBaseline = baselineCount / N
+    // 加权后命中模板占比应高于基线（×1.5 加权）
+    expect(ratioWithPref, `with pref ${ratioWithPref} vs baseline ${ratioBaseline}`).toBeGreaterThan(ratioBaseline)
+  })
+
+  it('preference 命中无效模板 → 不影响分布', () => {
+    const pet = mockPet({ element: 'ruins' })
+    const userPreference = pref('量子物理') // 不命中任何 ruins 模板
+    const counts = new Map<string, number>()
+    const N = 1000
+    for (let i = 0; i < N; i++) {
+      const t = pickTemplateForPet(pet, Math.random, { userPreference, nowSlot: 'morning' })
+      counts.set(t.id, (counts.get(t.id) ?? 0) + 1)
+    }
+    // 至少抽到 4 种 ruins 模板（说明没被锁死在某一个上）
+    const ruinsTemplates = [...counts.keys()].filter(id => id.startsWith('ruins-'))
+    expect(ruinsTemplates.length, `got ${ruinsTemplates.join(',')}`).toBeGreaterThanOrEqual(3)
   })
 })

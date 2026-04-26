@@ -10,6 +10,7 @@
  * AI 调用在 `lib/ai/taskPrompt.ts`。
  */
 import type { FullPet, PetStage } from '@/types/pet'
+import type { UserPreference } from '@/types/profile'
 import { stageGte } from '@/lib/game/stage'
 import {
   ALL_TEMPLATES,
@@ -69,16 +70,39 @@ export function buildPromptContext(
 export interface PickOptions {
   nowSlot?: NowSlot          // 'night' → 关闭 outdoor
   outdoorAllowed?: boolean   // false → 关闭 outdoor（默认 true）
+  /** v4.1: 用户偏好画像，命中模板加权（详见 preferenceWeight） */
+  userPreference?: UserPreference
 }
 
 const W_OUTDOOR = 0.4
 const W_INDOOR = 0.6
 const W_ANY = 1.0
 
+/** v4.1: preference 命中模板时的加权倍数 */
+export const W_PREFERENCE_HIT = 1.5
+
 function contextWeight(c: TaskContext, allowOutdoor: boolean): number {
   if (c === 'outdoor') return allowOutdoor ? W_OUTDOOR : 0
   if (c === 'indoor') return W_INDOOR
   return W_ANY
+}
+
+/**
+ * v4.1: preference 命中权重。
+ *
+ * 命中策略：用 template.defaultPrompt + verifyHint 拼成 corpus，
+ * 任一 topTags 出现在 corpus 里 → 视为命中（×1.5）。
+ *
+ * 不引入新 theme 字段（避免改 30 条模板）；defaultPrompt + verifyHint
+ * 已经包含模板主题词（"食物"、"遮蔽"、"涂鸦"、"家"等），中文 includes 直接生效。
+ *
+ * 单独导出便于单测。
+ */
+export function preferenceWeight(t: TaskTemplate, pref?: UserPreference): number {
+  if (!pref || pref.topTags.length === 0) return 1.0
+  const corpus = `${t.defaultPrompt} ${t.verifyHint}`
+  const hit = pref.topTags.some(({ tag }) => tag.length > 0 && corpus.includes(tag))
+  return hit ? W_PREFERENCE_HIT : 1.0
 }
 
 /**
@@ -140,8 +164,9 @@ export function pickTemplateForPet(
   const stageFiltered = pool.filter(t => passesStage(t, petStage))
   if (stageFiltered.length > 0) pool = stageFiltered
 
-  // 2. context 加权抽样
-  const w = (t: TaskTemplate) => contextWeight(t.context, allowOutdoor)
+  // 2. context × preference 加权抽样（v4.1）
+  const w = (t: TaskTemplate) =>
+    contextWeight(t.context, allowOutdoor) * preferenceWeight(t, opts.userPreference)
   const totalW = pool.reduce((s, t) => s + w(t), 0)
 
   // 兜底：pool 全是 outdoor 但 outdoor 被禁 → 从 ALL_TEMPLATES 取非 outdoor + stage filter

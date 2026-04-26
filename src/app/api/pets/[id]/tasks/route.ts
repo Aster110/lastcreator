@@ -5,6 +5,7 @@ import { getFullPet } from '@/lib/repo/petState'
 import { randomAssigner } from '@/lib/game/tasks/assigner'
 import { computeWorld } from '@/lib/game/world'
 import { nowSlotFromDate } from '@/lib/game/tasks/taskPrompt'
+import { getUserPreference } from '@/lib/game/profile/aggregator'
 import {
   countCompletedToday,
   countRerollsTodayByOwner,
@@ -41,9 +42,12 @@ export async function GET(
     let task = null
     if (pet.status === 'alive') {
       const world = await computeWorld()
+      // v4.1: 派单前算 owner 偏好画像，注入 PickOptions（命中模板 ×1.5 权重）
+      const userPreference = await getUserPreference(userId)
       task = await randomAssigner.getOrAssign(pet, world, {
         nowSlot: nowSlotFromDate(),
         outdoorAllowed: rerollsUsed === 0,
+        userPreference,
       })
     }
     const [dailyDone, historyRaw] = await Promise.all([
