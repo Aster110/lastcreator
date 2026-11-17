@@ -202,3 +202,6 @@ dist
 .open-next/
 next-env.d.ts
 task.md
+
+# Ephemeral Google OIDC/ADC runtime files
+gha-creds-*.json
